@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Funbox
 
-## Getting Started
+Juego de fiesta web con minijuegos asistidos por IA.
 
-First, run the development server:
+## Estructura
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```text
+funbox/
+├── frontend/            Next.js: rutas, pantallas y estilos
+│   └── src/
+│       ├── app/         Enrutamiento únicamente
+│       ├── features/    Lobby, ingreso y futuros juegos
+│       └── styles/      Tokens, base y sistema visual
+├── backend/             Fastify: servidor autoritativo
+│   └── src/
+│       ├── config/
+│       └── modules/
+│           ├── health/
+│           └── rooms/   routes → controller → service → repository
+├── packages/
+│   └── contracts/       Tipos compartidos
+└── supabase/
+    └── migrations/      Migraciones PostgreSQL ordenadas por dominio
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Desarrollo
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev:frontend
+npm run dev:backend
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Frontend: `http://localhost:3000`
+Backend: `http://localhost:4000/api/health`
 
-## Learn More
+## Flujo de salas
 
-To learn more about Next.js, take a look at the following resources:
+1. `/` crea una sala persistente y abre `/host/[code]` en la TV.
+2. Los jugadores entran por `/join` con código y nametag.
+3. El primero se convierte en líder y recibe el control para comenzar.
+4. Cada dispositivo conserva un token privado para reconexión.
+5. Socket.IO actualiza la TV cuando entra un jugador o comienza la partida.
+6. PostgreSQL guarda las salas y jugadores; los tokens solo se guardan como hash.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+La sala admite un máximo de ocho jugadores.
