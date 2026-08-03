@@ -1,7 +1,14 @@
 import type { AvatarKey, PlayerSession, Room } from "./room.types";
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:4000";
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+
+if (process.env.NODE_ENV === "production" && !configuredApiUrl) {
+  throw new Error(
+    "Falta NEXT_PUBLIC_API_URL. Configura en Vercel la URL pública del backend de Render.",
+  );
+}
+
+export const API_URL = (configuredApiUrl || "http://localhost:4000").replace(/\/+$/, "");
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);

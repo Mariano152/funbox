@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import QRCode from "react-qr-code";
 import { AvatarCharacter } from "@/features/avatars/avatar-catalog";
 import { getGame } from "@/features/games/game-catalog";
 import { MusicTvPage } from "@/features/music/MusicTvPage";
@@ -45,20 +46,18 @@ function EmptySlot({ number }: { number: number }) {
   );
 }
 
-function QrPlaceholder() {
+function JoinQr({ url, code }: { url: string; code: string }) {
   return (
-    <div className="qr" aria-label="Código QR provisional">
-      {Array.from({ length: 64 }, (_, index) => (
-        <i key={index} className={(index * 7 + Math.floor(index / 8) * 3) % 5 < 2 ? "on" : ""} />
-      ))}
-    </div>
+    <a className="qr" href={url} aria-label={`Abrir la sala ${code} para unirse`}>
+      <QRCode value={url} size={78} level="M" bgColor="#ffffff" fgColor="#09091f" />
+    </a>
   );
 }
 
 export function LobbyPage({ code }: { code: string }) {
   const [room, setRoom] = useState<Room | null>(null);
   const [error, setError] = useState("");
-  const [joinAddress, setJoinAddress] = useState("funbox.game/join");
+  const [joinUrl, setJoinUrl] = useState(`https://funbox.game/join?code=${code}`);
   const [configOpen, setConfigOpen] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [configError, setConfigError] = useState("");
@@ -93,7 +92,9 @@ export function LobbyPage({ code }: { code: string }) {
 
   useEffect(() => {
     getRoom(code).then(updateRoom).catch((reason) => setError(reason.message));
-    const frame = requestAnimationFrame(() => setJoinAddress(`${window.location.host}/join`));
+    const frame = requestAnimationFrame(() => {
+      setJoinUrl(`${window.location.origin}/join?code=${encodeURIComponent(code)}`);
+    });
     return () => cancelAnimationFrame(frame);
   }, [code, updateRoom]);
 
@@ -109,6 +110,7 @@ export function LobbyPage({ code }: { code: string }) {
   const emptySlots = Array.from({ length: Math.max(0, 8 - players.length) });
   const leader = room.players.find((player) => player.isHost);
   const game = getGame(room.gameKey);
+  const joinAddress = joinUrl.replace(/^https?:\/\//, "").replace(/\?.*$/, "");
 
   async function saveConfig() {
     setSavingConfig(true);
@@ -150,7 +152,7 @@ export function LobbyPage({ code }: { code: string }) {
             {room.code.split("").map((letter, index) => <span key={`${letter}-${index}`}>{letter}</span>)}
           </div>
           <div className="join-hint">
-            <QrPlaceholder />
+            <JoinQr url={joinUrl} code={room.code} />
             <div><strong>Escanea para unirte</strong><span>o escribe el código {room.code}</span></div>
           </div>
         </div>

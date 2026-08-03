@@ -137,8 +137,11 @@
   text-transform: uppercase;
 }
 .join-address {
+  max-width: 100%;
   color: var(--cyan);
-  font-size: clamp(1.35rem, 2vw, 2rem);
+  font-size: clamp(1rem, 1.55vw, 1.55rem);
+  line-height: 1.18;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
   text-shadow: 0 0 24px #22e4f080;
 }
@@ -168,18 +171,18 @@
 .join-hint strong { margin-bottom: 7px; font-size: .95rem; }
 .join-hint span { color: #9f97c5; font: .82rem Arial, sans-serif; }
 .qr {
-  width: 78px;
+  width: 92px;
+  flex: 0 0 92px;
   aspect-ratio: 1;
   padding: 7px;
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 2px;
+  place-items: center;
   border: 5px solid white;
   border-radius: 13px;
   background: white;
   transform: rotate(-2deg);
 }
-.qr i.on { border-radius: 1px; background: var(--ink); }
+.qr svg { display: block; width: 100%; height: 100%; }
 
 .party-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .party-heading h1 { margin: 0; font-size: clamp(1.75rem, 3vw, 3.25rem); letter-spacing: -.04em; }
