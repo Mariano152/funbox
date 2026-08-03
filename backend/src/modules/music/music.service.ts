@@ -3,6 +3,7 @@ import type { GameConfig, RoomsRepository } from "../rooms/rooms.repository.js";
 import { publishRoomUpdated } from "../rooms/rooms.events.js";
 import { publishMusicUpdated } from "./music.events.js";
 import type { MusicHistoryRepository } from "./music-history.repository.js";
+import type { MusicStateRepository } from "./music-state.repository.js";
 import { selectCatalogSongPack } from "./catalog-song-selector.js";
 import { catalogKey } from "./catalog-utils.js";
 import type { MusicCatalogRepository } from "./music-catalog.repository.js";
@@ -120,7 +121,21 @@ export class MusicService {
     private readonly rooms: RoomsRepository,
     private readonly history: MusicHistoryRepository,
     private readonly catalog: MusicCatalogRepository,
+    private readonly stateRepository: MusicStateRepository,
   ) {}
+
+  private async loadState(code: string) {
+    const cached = states.get(code);
+    if (cached) return cached;
+    const persisted = await this.stateRepository.find(code);
+    if (persisted) states.set(code, persisted);
+    return persisted;
+  }
+
+  private async saveState(code: string, state: MusicRoomState) {
+    states.set(code, state);
+    await this.stateRepository.save(code, state);
+  }
 
   async prepareLobbyPlaylist(code: string, config: GameConfig) {
     const rounds = Math.max(1, Math.min(20, Number(config.rounds ?? 10)));
@@ -160,7 +175,7 @@ export class MusicService {
       } satisfies PreparedMusicTrack;
     }));
 
-    const current = states.get(code);
+    const current = await this.loadState(code);
     const publicState: MusicPublicState = {
       djConnected: current?.publicState.djConnected ?? false,
       phase: current?.publicState.djConnected ? "ready" : "waiting_for_dj",
@@ -171,7 +186,7 @@ export class MusicService {
       answerResults: {},
       scores: current?.publicState.scores ?? {},
     };
-    states.set(code, {
+    await this.saveState(code, {
       publicState,
       djTokenHash: current?.djTokenHash,
       queuedTracks: preparedTracks,
@@ -186,16 +201,17 @@ export class MusicService {
     );
   }
 
-  isLobbyPlaylistPrepared(code: string, config: GameConfig) {
-    const state = states.get(code);
+  async isLobbyPlaylistPrepared(code: string, config: GameConfig) {
+    const state = await this.loadState(code);
     return Boolean(
       state?.preparedConfigKey === stableConfigKey(config) &&
       state.queuedTracks && state.queuedTracks.length >= Number(config.rounds ?? 10),
     );
   }
 
-  clearLobbyPlaylist(code: string) {
+  async clearLobbyPlaylist(code: string) {
     states.delete(code);
+    await this.stateRepository.delete(code);
   }
 
   async connectDj(code: string, playerId: string, reconnectToken: string) {
@@ -210,7 +226,7 @@ export class MusicService {
       throw musicError("Primero debes elegir el rol DJ desde tu sala", 403);
     }
     const token = randomBytes(32).toString("hex");
-    const current = states.get(code);
+    const current = await this.loadState(code);
     const publicState: MusicPublicState = {
       djConnected: true,
       phase: current?.publicState.phase === "waiting_for_dj"
@@ -223,7 +239,7 @@ export class MusicService {
       answerResults: current?.publicState.answerResults ?? {},
       scores: current?.publicState.scores ?? {},
     };
-    states.set(code, {
+    await this.saveState(code, {
       publicState,
       djTokenHash: hashToken(token),
       usedTracks: current?.usedTracks ?? [],
@@ -238,7 +254,7 @@ export class MusicService {
 
   async getState(code: string) {
     const room = await this.requireMusicRoom(code);
-    return states.get(code)?.publicState ?? {
+    return (await this.loadState(code))?.publicState ?? {
       djConnected: false,
       phase: "waiting_for_dj",
       roundNumber: 0,
@@ -251,7 +267,7 @@ export class MusicService {
   async prepareRound(code: string, token: string) {
     const room = await this.requireMusicRoom(code);
     if (room.status !== "playing") throw musicError("La partida todavía no ha comenzado", 409);
-    const state = this.requireDj(code, token);
+    const state = await this.requireDj(code, token);
     if (state.publicState.roundNumber >= state.publicState.totalRounds) {
       throw musicError("La partida ya completó todas sus rondas", 409);
     }
@@ -266,6 +282,7 @@ export class MusicService {
       answerResults: {},
     };
     state.answerDrafts = {};
+    await this.saveState(code, state);
     publishMusicUpdated(code, state.publicState);
 
     try {
@@ -297,6 +314,7 @@ export class MusicService {
         videoId: video.videoId,
         ...interval,
       };
+      await this.saveState(code, state);
       publishMusicUpdated(code, state.publicState);
       return state.publicState;
     } catch (reason) {
@@ -305,6 +323,7 @@ export class MusicService {
         phase: "error",
         error: reason instanceof Error ? reason.message : "No pudimos preparar la canción",
       };
+      await this.saveState(code, state);
       publishMusicUpdated(code, state.publicState);
       throw reason;
     }
@@ -325,7 +344,7 @@ export class MusicService {
     if (!authorized || !player) throw musicError("La sesión del jugador no es válida", 401);
     if (player.isDj) throw musicError("El DJ no participa en las respuestas", 403);
 
-    const state = states.get(code);
+    const state = await this.loadState(code);
     const acceptingLateReveal =
       state?.publicState.phase === "reveal" &&
       Boolean(state.publicState.deadlineAt) &&
@@ -343,6 +362,7 @@ export class MusicService {
       input.song,
       input.artist,
     );
+    await this.saveState(code, state);
     publishMusicUpdated(code, state.publicState);
     return { result, score, state: state.publicState };
   }
@@ -366,7 +386,7 @@ export class MusicService {
     const player = room.players.find((candidate) => candidate.id === input.playerId);
     if (!authorized || !player) throw musicError("La sesión del jugador no es válida", 401);
     if (player.isDj) throw musicError("El DJ no participa en las respuestas", 403);
-    const state = states.get(code);
+    const state = await this.loadState(code);
     if (!state?.secretTrack || input.roundNumber !== state.publicState.roundNumber) {
       throw musicError("Ese borrador pertenece a otra ronda", 409);
     }
@@ -393,23 +413,25 @@ export class MusicService {
       applyAnswer(state, input.playerId, input.song, input.artist);
       publishMusicUpdated(code, state.publicState);
     }
+    await this.saveState(code, state);
     return { saved: true };
   }
 
   async markStarted(code: string, token: string) {
-    const state = this.requireDj(code, token);
+    const state = await this.requireDj(code, token);
     if (state.publicState.phase !== "ready") throw musicError("La ronda no está lista", 409);
     state.publicState = {
       ...state.publicState,
       phase: "playing",
       deadlineAt: new Date(Date.now() + state.publicState.clipDuration * 1000).toISOString(),
     };
+    await this.saveState(code, state);
     publishMusicUpdated(code, state.publicState);
     return state.publicState;
   }
 
   async finishClip(code: string, token: string) {
-    const state = this.requireDj(code, token);
+    const state = await this.requireDj(code, token);
     if (state.publicState.phase !== "playing") {
       throw musicError("El fragmento no está reproduciéndose", 409);
     }
@@ -420,12 +442,13 @@ export class MusicService {
         Date.now() + state.publicState.answerDuration * 1000,
       ).toISOString(),
     };
+    await this.saveState(code, state);
     publishMusicUpdated(code, state.publicState);
     return state.publicState;
   }
 
   async setPaused(code: string, paused: boolean) {
-    const state = states.get(code);
+    const state = await this.loadState(code);
     if (!state) throw musicError("La partida musical todavía no está lista", 409);
     if (paused) {
       if (!["playing", "answering"].includes(state.publicState.phase)) {
@@ -456,6 +479,7 @@ export class MusicService {
         pausedRemainingMs: undefined,
       };
     }
+    await this.saveState(code, state);
     publishMusicUpdated(code, state.publicState);
     return state.publicState;
   }
@@ -467,7 +491,7 @@ export class MusicService {
   ) {
     const room = await this.requireMusicRoom(code);
     if (room.status !== "playing") throw musicError("La partida todavía no ha comenzado", 409);
-    const state = this.requireDj(code, token);
+    const state = await this.requireDj(code, token);
     const url = new URL(input.youtubeUrl);
     const videoId = url.hostname.includes("youtu.be")
       ? url.pathname.slice(1)
@@ -488,12 +512,13 @@ export class MusicService {
       videoId,
       ...interval,
     };
+    await this.saveState(code, state);
     publishMusicUpdated(code, state.publicState);
     return state.publicState;
   }
 
   async reveal(code: string, token: string) {
-    const state = this.requireDj(code, token);
+    const state = await this.requireDj(code, token);
     if (!state.secretTrack) throw musicError("No hay canción que revelar", 409);
     if (
       state.publicState.phase === "reveal" &&
@@ -504,6 +529,7 @@ export class MusicService {
         phase: "finished",
         deadlineAt: undefined,
       };
+      await this.saveState(code, state);
       publishMusicUpdated(code, state.publicState);
       return state.publicState;
     }
@@ -521,6 +547,7 @@ export class MusicService {
       deadlineAt: new Date(Date.now() + 5_000).toISOString(),
       revealedTrack: state.secretTrack,
     };
+    await this.saveState(code, state);
     publishMusicUpdated(code, state.publicState);
     return state.publicState;
   }
@@ -529,7 +556,7 @@ export class MusicService {
     await this.requireMusicRoom(code);
     const room = await this.rooms.updateStatus(code, "lobby");
     if (!room) throw musicError("Sala no encontrada", 404);
-    const state = states.get(code);
+    const state = await this.loadState(code);
     if (state) {
       state.secretTrack = undefined;
       state.queuedTracks = [];
@@ -549,6 +576,7 @@ export class MusicService {
         startSeconds: undefined,
         endSeconds: undefined,
       };
+      await this.saveState(code, state);
       publishMusicUpdated(code, state.publicState);
     }
     publishRoomUpdated(room);
@@ -562,8 +590,8 @@ export class MusicService {
     return room;
   }
 
-  private requireDj(code: string, token: string) {
-    const state = states.get(code);
+  private async requireDj(code: string, token: string) {
+    const state = await this.loadState(code);
     if (!state?.djTokenHash || state.djTokenHash !== hashToken(token)) {
       throw musicError("El dispositivo DJ no está autorizado", 401);
     }

@@ -32,8 +32,8 @@ function roomError(message: string, statusCode: number) {
 
 export interface MusicLobbyPreparer {
   prepareLobbyPlaylist(code: string, config: GameConfig): Promise<void>;
-  isLobbyPlaylistPrepared(code: string, config: GameConfig): boolean;
-  clearLobbyPlaylist(code: string): void;
+  isLobbyPlaylistPrepared(code: string, config: GameConfig): Promise<boolean>;
+  clearLobbyPlaylist(code: string): Promise<void>;
 }
 
 export class RoomsService {
@@ -69,7 +69,7 @@ export class RoomsService {
       try {
         room = await this.repository.create(roomInput, hashToken(displayToken));
       } catch (error) {
-        this.musicPreparer?.clearLobbyPlaylist(code);
+        await this.musicPreparer?.clearLobbyPlaylist(code);
         throw error;
       }
 
@@ -241,7 +241,7 @@ export class RoomsService {
     }
     if (
       room.gameKey === "guess-the-song" &&
-      !this.musicPreparer?.isLobbyPlaylistPrepared(code, room.gameConfig)
+      !await this.musicPreparer?.isLobbyPlaylistPrepared(code, room.gameConfig)
     ) {
       throw roomError(
         "La música todavía no está preparada. Confirma la configuración antes de comenzar.",
