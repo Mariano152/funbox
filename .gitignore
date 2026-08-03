@@ -30,9 +30,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+/backend/*.log
+/backend/*.checkpoint.ndjson
+/backend/run-youtube-*.ps1
 
 # env files (can opt-in for committing if needed)
 .env*
+!/backend/.env.example
 
 # vercel
 .vercel

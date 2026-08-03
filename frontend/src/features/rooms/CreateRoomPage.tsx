@@ -14,7 +14,7 @@ export function CreateRoomPage() {
     setLoading(true);
     setError("");
     try {
-      const { room } = await createRoom();
+      const { room } = await createRoom("wheres-waldo");
       router.push(`/host/${room.code}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "No pudimos crear la sala");

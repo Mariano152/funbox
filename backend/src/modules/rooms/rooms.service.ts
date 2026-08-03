@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type {
   AvatarColor,
   AvatarKey,
+  GameConfig,
   RoomsRepository,
   StoredPlayer,
 } from "./rooms.repository.js";
@@ -19,6 +20,7 @@ const AVATARS: { key: AvatarKey; color: AvatarColor }[] = [
 ];
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 const MAX_PLAYERS = 8;
+const MAX_MUSIC_PARTICIPANTS = 9;
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -28,10 +30,19 @@ function roomError(message: string, statusCode: number) {
   return Object.assign(new Error(message), { statusCode });
 }
 
-export class RoomsService {
-  constructor(private readonly repository: RoomsRepository) {}
+export interface MusicLobbyPreparer {
+  prepareLobbyPlaylist(code: string, config: GameConfig): Promise<void>;
+  isLobbyPlaylistPrepared(code: string, config: GameConfig): boolean;
+  clearLobbyPlaylist(code: string): void;
+}
 
-  async createRoom() {
+export class RoomsService {
+  constructor(
+    private readonly repository: RoomsRepository,
+    private readonly musicPreparer?: MusicLobbyPreparer,
+  ) {}
+
+  async createRoom(gameKey: string, gameConfig: GameConfig) {
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const code = Array.from(
         { length: 4 },
@@ -41,16 +52,26 @@ export class RoomsService {
       if (await this.repository.findByCode(code)) continue;
 
       const displayToken = randomBytes(24).toString("hex");
-      const room = await this.repository.create(
-        {
+      const roomInput = {
           id: randomUUID(),
           code,
-          status: "lobby",
+          gameKey,
+          gameConfig,
+          status: "lobby" as const,
           players: [],
           createdAt: new Date().toISOString(),
-        },
-        hashToken(displayToken),
-      );
+        };
+      if (gameKey === "guess-the-song") {
+        if (!this.musicPreparer) throw roomError("El preparador musical no está disponible", 503);
+        await this.musicPreparer.prepareLobbyPlaylist(code, gameConfig);
+      }
+      let room;
+      try {
+        room = await this.repository.create(roomInput, hashToken(displayToken));
+      } catch (error) {
+        this.musicPreparer?.clearLobbyPlaylist(code);
+        throw error;
+      }
 
       return { room };
     }
@@ -88,7 +109,8 @@ export class RoomsService {
       };
     }
 
-    if (room.players.length >= MAX_PLAYERS) throw roomError("La sala está llena", 409);
+    const roomLimit = room.gameKey === "guess-the-song" ? MAX_MUSIC_PARTICIPANTS : MAX_PLAYERS;
+    if (room.players.length >= roomLimit) throw roomError("La sala está llena", 409);
 
     const selectedAvatar = AVATARS.find(
       (avatar) => !room.players.some((player) => player.avatarKey === avatar.key),
@@ -101,7 +123,8 @@ export class RoomsService {
       nickname,
       avatarKey: selectedAvatar.key,
       avatarColor: selectedAvatar.color,
-      isHost: room.players.length === 0,
+      isHost: !room.players.some((candidate) => candidate.isHost),
+      isDj: false,
       isConnected: true,
     };
     const updatedRoom = await this.repository.addPlayer(code, player, hashToken(token));
@@ -150,6 +173,50 @@ export class RoomsService {
     return updatedRoom;
   }
 
+  async changeDjRole(
+    code: string,
+    playerId: string,
+    reconnectToken: string,
+    isDj: boolean,
+  ) {
+    const room = await this.repository.findByCode(code);
+    if (!room) throw roomError("Sala no encontrada", 404);
+    if (room.status !== "lobby") throw roomError("La partida ya comenzó", 409);
+    if (room.gameKey !== "guess-the-song") {
+      throw roomError("Este juego no necesita DJ", 409);
+    }
+
+    const authorized = await this.repository.isPlayerTokenValid(
+      code,
+      playerId,
+      hashToken(reconnectToken),
+    );
+    if (!authorized) throw roomError("La sesión del jugador no es válida", 401);
+
+    const currentDj = room.players.find((player) => player.isDj);
+    if (isDj && currentDj && currentDj.id !== playerId) {
+      throw roomError(`${currentDj.nickname} ya ocupa la cabina DJ`, 409);
+    }
+    if (!isDj && room.players.filter((player) => !player.isDj).length >= MAX_PLAYERS) {
+      throw roomError("Los 8 lugares de jugadores ya están ocupados", 409);
+    }
+
+    let updatedRoom = await this.repository.updateDjRole(code, playerId, isDj);
+    if (!updatedRoom) throw roomError("No pudimos actualizar el DJ", 409);
+
+    if (isDj && playerId === room.players.find((player) => player.isHost)?.id) {
+      const nextLeader = room.players.find(
+        (player) => player.id !== playerId && !player.isDj,
+      );
+      updatedRoom = await this.repository.assignHost(code, nextLeader?.id);
+    } else if (!isDj && !room.players.some((player) => player.isHost)) {
+      updatedRoom = await this.repository.assignHost(code, playerId);
+    }
+
+    if (!updatedRoom) throw roomError("No pudimos transferir el liderazgo", 409);
+    return updatedRoom;
+  }
+
   async startRoom(code: string, playerId: string, reconnectToken: string) {
     const room = await this.repository.findByCode(code);
     if (!room) throw roomError("Sala no encontrada", 404);
@@ -157,6 +224,7 @@ export class RoomsService {
 
     const leader = room.players.find((player) => player.id === playerId);
     if (!leader?.isHost) throw roomError("Solo el líder puede comenzar", 403);
+    if (leader.isDj) throw roomError("El DJ no puede dirigir la partida", 409);
 
     const authorized = await this.repository.isPlayerTokenValid(
       code,
@@ -165,8 +233,36 @@ export class RoomsService {
     );
     if (!authorized) throw roomError("La sesión del líder no es válida", 401);
 
+    if (room.gameKey === "guess-the-song" && !room.players.some((player) => player.isDj)) {
+      throw roomError("Alguien debe entrar como DJ antes de comenzar", 409);
+    }
+    if (room.players.filter((player) => !player.isDj).length > MAX_PLAYERS) {
+      throw roomError("Debe haber máximo 8 jugadores además del DJ", 409);
+    }
+    if (
+      room.gameKey === "guess-the-song" &&
+      !this.musicPreparer?.isLobbyPlaylistPrepared(code, room.gameConfig)
+    ) {
+      throw roomError(
+        "La música todavía no está preparada. Confirma la configuración antes de comenzar.",
+        409,
+      );
+    }
+
     const updatedRoom = await this.repository.updateStatus(code, "playing");
     if (!updatedRoom) throw roomError("Sala no encontrada", 404);
     return updatedRoom;
+  }
+
+  async updateMusicConfig(code: string, gameConfig: GameConfig) {
+    const room = await this.repository.findByCode(code);
+    if (!room) throw roomError("Sala no encontrada", 404);
+    if (room.status !== "lobby") throw roomError("La configuración ya está bloqueada", 409);
+    if (room.gameKey !== "guess-the-song") throw roomError("Esta sala no es musical", 409);
+    if (!this.musicPreparer) throw roomError("El preparador musical no está disponible", 503);
+    await this.musicPreparer.prepareLobbyPlaylist(code, gameConfig);
+    const updated = await this.repository.updateGameConfig(code, gameConfig);
+    if (!updated) throw roomError("No pudimos guardar la configuración", 409);
+    return updated;
   }
 }

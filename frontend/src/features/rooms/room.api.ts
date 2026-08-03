@@ -18,8 +18,11 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function createRoom() {
-  return apiRequest<{ room: Room }>("/api/rooms", { method: "POST" });
+export function createRoom(gameKey: string, gameConfig: object = {}) {
+  return apiRequest<{ room: Room }>("/api/rooms", {
+    method: "POST",
+    body: JSON.stringify({ gameKey, gameConfig }),
+  });
 }
 
 export function getRoom(code: string) {
@@ -56,6 +59,24 @@ export function changeAvatar(session: PlayerSession, avatarKey: AvatarKey) {
       reconnectToken: session.reconnectToken,
       avatarKey,
     }),
+  });
+}
+
+export function changeDjRole(session: PlayerSession, isDj: boolean) {
+  return apiRequest<Room>(`/api/rooms/${session.code}/players/dj`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      playerId: session.playerId,
+      reconnectToken: session.reconnectToken,
+      isDj,
+    }),
+  });
+}
+
+export function updateMusicConfig(code: string, gameConfig: object) {
+  return apiRequest<Room>(`/api/rooms/${code}/music-config`, {
+    method: "PATCH",
+    body: JSON.stringify(gameConfig),
   });
 }
 

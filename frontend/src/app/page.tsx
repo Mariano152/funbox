@@ -1,5 +1,5 @@
-import { CreateRoomPage } from "@/features/rooms/CreateRoomPage";
+import { HomePage } from "@/features/games/HomePage";
 
 export default function Page() {
-  return <CreateRoomPage />;
+  return <HomePage />;
 }

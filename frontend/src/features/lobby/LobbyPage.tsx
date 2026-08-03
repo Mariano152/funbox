@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AvatarCharacter } from "@/features/avatars/avatar-catalog";
-import { getRoom } from "@/features/rooms/room.api";
+import { getGame } from "@/features/games/game-catalog";
+import { MusicTvPage } from "@/features/music/MusicTvPage";
+import { MusicConfigFields } from "@/features/music/MusicConfigFields";
+import { DEFAULT_MUSIC_CONFIG, type MusicGameConfig } from "@/features/music/music.types";
+import { getRoom, updateMusicConfig } from "@/features/rooms/room.api";
 import type { Room, RoomPlayer } from "@/features/rooms/room.types";
 import { useRoomSocket } from "@/features/rooms/use-room-socket";
 
@@ -21,6 +25,7 @@ function PlayerCard({ player, index }: { player: RoomPlayer; index: number }) {
     <article className={`player-card player-${player.avatarColor} player-enter`}>
       <div className="player-stage">
         {player.isHost && <span className="leader-badge">Líder</span>}
+        {player.isDj && <span className="dj-badge">DJ</span>}
         <AvatarCharacter avatarKey={player.avatarKey} index={index} />
       </div>
       <div className="player-name">
@@ -54,13 +59,43 @@ export function LobbyPage({ code }: { code: string }) {
   const [room, setRoom] = useState<Room | null>(null);
   const [error, setError] = useState("");
   const [joinAddress, setJoinAddress] = useState("funbox.game/join");
-  const updateRoom = useCallback((nextRoom: Room) => setRoom(nextRoom), []);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [configError, setConfigError] = useState("");
+  const [musicConfig, setMusicConfig] = useState<MusicGameConfig>(DEFAULT_MUSIC_CONFIG);
+  const updateRoom = useCallback((nextRoom: Room) => {
+    setRoom(nextRoom);
+    if (nextRoom.gameKey === "guess-the-song") {
+      const savedConfig = nextRoom.gameConfig as Record<string, unknown>;
+      const legacyLanguage =
+        typeof savedConfig.language === "string" &&
+        ["es", "en", "international"].includes(savedConfig.language)
+          ? [savedConfig.language]
+          : [];
+      const legacyDifficulty =
+        typeof savedConfig.difficulty === "string" &&
+        ["easy", "medium", "hard"].includes(savedConfig.difficulty)
+          ? [savedConfig.difficulty]
+          : [];
+      setMusicConfig({
+        ...DEFAULT_MUSIC_CONFIG,
+        ...savedConfig,
+        languages: Array.isArray(savedConfig.languages)
+          ? savedConfig.languages
+          : legacyLanguage,
+        difficulties: Array.isArray(savedConfig.difficulties)
+          ? savedConfig.difficulties
+          : legacyDifficulty,
+      } as MusicGameConfig);
+    }
+  }, []);
   useRoomSocket(code, updateRoom);
 
   useEffect(() => {
-    getRoom(code).then(setRoom).catch((reason) => setError(reason.message));
-    setJoinAddress(`${window.location.host}/join`);
-  }, [code]);
+    getRoom(code).then(updateRoom).catch((reason) => setError(reason.message));
+    const frame = requestAnimationFrame(() => setJoinAddress(`${window.location.host}/join`));
+    return () => cancelAnimationFrame(frame);
+  }, [code, updateRoom]);
 
   if (error) {
     return <main className="state-shell"><h1>No encontramos esa sala</h1><p>{error}</p></main>;
@@ -69,8 +104,28 @@ export function LobbyPage({ code }: { code: string }) {
     return <main className="state-shell"><div className="loading-jelly" /><p>Preparando la fiesta…</p></main>;
   }
 
-  const emptySlots = Array.from({ length: 8 - room.players.length });
+  const dj = room.players.find((player) => player.isDj);
+  const players = room.players.filter((player) => !player.isDj);
+  const emptySlots = Array.from({ length: Math.max(0, 8 - players.length) });
   const leader = room.players.find((player) => player.isHost);
+  const game = getGame(room.gameKey);
+
+  async function saveConfig() {
+    setSavingConfig(true);
+    setConfigError("");
+    try {
+      updateRoom(await updateMusicConfig(code, musicConfig));
+      setConfigOpen(false);
+    } catch (reason) {
+      setConfigError(reason instanceof Error ? reason.message : "No pudimos preparar la configuración");
+    } finally {
+      setSavingConfig(false);
+    }
+  }
+
+  if (room.status === "playing" && room.gameKey === "guess-the-song") {
+    return <MusicTvPage code={code} room={room} />;
+  }
 
   return (
     <main className="lobby-shell">
@@ -78,7 +133,10 @@ export function LobbyPage({ code }: { code: string }) {
       <header className="lobby-header">
         <FunboxLogo />
         <div className="header-actions">
-          <span className="player-count">{room.players.length}/8</span>
+          <span className="player-count">{players.length}/8</span>
+          {room.gameKey === "guess-the-song" && (
+            <button className="icon-button config-button" onClick={() => setConfigOpen(true)} aria-label="Configurar juego">⚙</button>
+          )}
           <button className="icon-button" aria-label="Sonido activado">♪</button>
         </div>
       </header>
@@ -100,21 +158,28 @@ export function LobbyPage({ code }: { code: string }) {
         <div className="party-panel">
           <div className="party-heading">
             <div>
-              <p className="eyebrow">La fiesta se está armando</p>
+              <p className="eyebrow">{game?.name ?? "La fiesta se está armando"}</p>
               <h1>
                 {room.status === "playing"
                   ? "¡La fiesta comenzó!"
                   : room.players.length === 0
                     ? "Esperando a la primera gelatina"
-                    : `${room.players.length} ${room.players.length === 1 ? "gelatina lista" : "gelatinas listas"}`}
+                    : `${players.length} ${players.length === 1 ? "gelatina lista" : "gelatinas listas"}`}
               </h1>
             </div>
             <span className={`status-pill status-${room.status}`}><i /> {room.status === "lobby" ? "Sala abierta" : "En juego"}</span>
           </div>
 
+          {room.gameKey === "guess-the-song" && (
+            <div className="dj-stage-slot">
+              {dj
+                ? <PlayerCard player={dj} index={8} />
+                : <div className="dj-empty-slot"><strong>Cabina DJ</strong><span>Un jugador puede ocuparla</span></div>}
+            </div>
+          )}
           <div className="players-grid players-grid-eight">
-            {room.players.map((player, index) => <PlayerCard key={player.id} player={player} index={index} />)}
-            {emptySlots.map((_, index) => <EmptySlot key={index} number={room.players.length + index + 1} />)}
+            {players.map((player, index) => <PlayerCard key={player.id} player={player} index={index} />)}
+            {emptySlots.map((_, index) => <EmptySlot key={index} number={players.length + index + 1} />)}
           </div>
 
           <div className="lobby-footer">
@@ -125,12 +190,30 @@ export function LobbyPage({ code }: { code: string }) {
                 <small>El botón para comenzar aparece en su celular</small>
               </div>
             </div>
+            {room.gameKey === "guess-the-song" && (
+              <div className="dj-lobby-status">
+                {room.players.find((player) => player.isDj)
+                  ? `${room.players.find((player) => player.isDj)?.nickname} está en la cabina DJ`
+                  : "Esperando que un jugador elija ser DJ"}
+              </div>
+            )}
             <div className="tv-waiting">
               {room.status === "playing" ? "Preparando el primer juego…" : "Esperando al líder…"}
             </div>
           </div>
         </div>
       </section>
+      {configOpen && (
+        <div className="config-modal-backdrop" role="presentation" onMouseDown={() => setConfigOpen(false)}>
+          <section className="config-modal" role="dialog" aria-modal="true" aria-label="Configuración musical" onMouseDown={(event) => event.stopPropagation()}>
+            <header><div><p className="eyebrow">Antes de empezar</p><h2>Configura la partida</h2></div><button onClick={() => setConfigOpen(false)}>×</button></header>
+            <MusicConfigFields value={musicConfig} onChange={setMusicConfig} compact />
+            <p>Al confirmar se selecciona la playlist, se preparan hasta 70 embeddings y se precargan los videos.</p>
+            {configError && <p className="form-error">{configError}</p>}
+            <button className="start-button config-save" onClick={saveConfig} disabled={savingConfig}><span>{savingConfig ? "Preparando música…" : "Confirmar y preparar"}</span><i>✓</i></button>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

@@ -2,10 +2,15 @@ import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { isAllowedOrigin } from "./config/cors.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
+import { musicRoutes } from "./modules/music/music.routes.js";
 import { roomRoutes } from "./modules/rooms/rooms.routes.js";
 
 export function buildApp() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    logger: {
+      level: "error",
+    },
+  });
 
   app.register(cors, {
     origin(origin, callback) {
@@ -15,6 +20,7 @@ export function buildApp() {
   });
 
   app.register(healthRoutes, { prefix: "/api/health" });
+  app.register(musicRoutes, { prefix: "/api/music" });
   app.register(roomRoutes, { prefix: "/api/rooms" });
 
   return app;

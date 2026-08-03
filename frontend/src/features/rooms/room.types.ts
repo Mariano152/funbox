@@ -26,12 +26,15 @@ export interface RoomPlayer {
   avatarKey: AvatarKey;
   avatarColor: AvatarColor;
   isHost: boolean;
+  isDj: boolean;
   isConnected: boolean;
 }
 
 export interface Room {
   id: string;
   code: string;
+  gameKey: string;
+  gameConfig: Record<string, unknown>;
   status: "lobby" | "playing" | "finished";
   players: RoomPlayer[];
   createdAt: string;
