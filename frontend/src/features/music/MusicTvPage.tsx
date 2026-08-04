@@ -12,6 +12,8 @@ export function MusicTvPage({ code, room }: { code: string; room: Room }) {
   const [seconds, setSeconds] = useState(0);
   const [djAddress, setDjAddress] = useState(`/dj/${code}`);
   const [pauseWorking, setPauseWorking] = useState(false);
+  const [replayWorking, setReplayWorking] = useState(false);
+  const [replayError, setReplayError] = useState("");
   const updateState = useCallback((next: MusicPublicState) => setState(next), []);
   useMusicSocket(code, updateState);
 
@@ -56,6 +58,21 @@ export function MusicTvPage({ code, room }: { code: string; room: Room }) {
       setState(await setMusicPaused(code, state.phase !== "paused"));
     } finally {
       setPauseWorking(false);
+    }
+  }
+
+  async function replay() {
+    if (replayWorking) return;
+    setReplayWorking(true);
+    setReplayError("");
+    try {
+      await returnMusicToLobby(code);
+      setReplayWorking(false);
+    } catch (reason) {
+      setReplayError(
+        reason instanceof Error ? reason.message : "No pudimos preparar la nueva partida",
+      );
+      setReplayWorking(false);
     }
   }
 
@@ -105,8 +122,9 @@ export function MusicTvPage({ code, room }: { code: string; room: Room }) {
                 ))}
               </div>
             )}
-            <button className="start-button results-replay" onClick={() => void returnMusicToLobby(code)}>
-              <span>Volver a jugar</span><i>↻</i>
+            {replayError && <p className="form-error">{replayError}</p>}
+            <button className="start-button results-replay" onClick={() => void replay()} disabled={replayWorking}>
+              <span>{replayWorking ? "Preparando nueva partida…" : "Volver a jugar"}</span><i>↻</i>
             </button>
           </div>
         ) : (

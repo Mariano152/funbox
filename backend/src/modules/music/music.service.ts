@@ -599,32 +599,12 @@ export class MusicService {
   }
 
   async returnToLobby(code: string) {
-    await this.requireMusicRoom(code);
+    const currentRoom = await this.requireMusicRoom(code);
     const room = await this.rooms.updateStatus(code, "lobby");
     if (!room) throw musicError("Sala no encontrada", 404);
-    const state = await this.loadState(code);
-    if (state) {
-      state.secretTrack = undefined;
-      state.queuedTracks = [];
-      state.usedTracks = [];
-      state.answerDrafts = {};
-      state.publicState = {
-        ...state.publicState,
-        djConnected: true,
-        phase: "ready",
-        roundNumber: 0,
-        revealedTrack: undefined,
-        answerResults: {},
-        scores: {},
-        videoId: undefined,
-        deadlineAt: undefined,
-        error: undefined,
-        startSeconds: undefined,
-        endSeconds: undefined,
-      };
-      await this.saveState(code, state);
-      publishMusicUpdated(code, state.publicState);
-    }
+    const previousState = await this.loadState(code);
+    if (previousState) previousState.publicState.scores = {};
+    await this.prepareLobbyPlaylist(code, currentRoom.gameConfig);
     publishRoomUpdated(room);
     return room;
   }
