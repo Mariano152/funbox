@@ -599,13 +599,13 @@ export class MusicService {
   }
 
   async returnToLobby(code: string) {
-    const currentRoom = await this.requireMusicRoom(code);
+    await this.requireMusicRoom(code);
     const room = await this.rooms.updateStatus(code, "lobby");
     if (!room) throw musicError("Sala no encontrada", 404);
+    publishRoomUpdated(room);
     const previousState = await this.loadState(code);
     if (previousState) previousState.publicState.scores = {};
-    await this.prepareLobbyPlaylist(code, currentRoom.gameConfig);
-    publishRoomUpdated(room);
+    await this.prepareLobbyPlaylist(code, room.gameConfig);
     return room;
   }
 

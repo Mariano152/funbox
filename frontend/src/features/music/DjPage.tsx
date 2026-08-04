@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FunboxLogo } from "@/features/games/FunboxLogo";
@@ -21,6 +22,7 @@ import { useMusicSocket } from "./use-music-socket";
 import { loadYoutubeApi, type YoutubePlayer } from "./youtube-player";
 
 export function DjPage({ code }: { code: string }) {
+  const router = useRouter();
   const [token, setToken] = useState("");
   const [session, setSession] = useState<PlayerSession | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
@@ -39,6 +41,7 @@ export function DjPage({ code }: { code: string }) {
   const startingRef = useRef(false);
   const playerStateRef = useRef(-1);
   const recoveryRef = useRef({ videoId: "", reloads: 0, replacing: false });
+  const wasPlayingRef = useRef(false);
   const updateState = useCallback((next: MusicPublicState) => setState(next), []);
   const updateRoom = useCallback((next: Room) => setRoom(next), []);
   useMusicSocket(code, updateState);
@@ -128,6 +131,13 @@ export function DjPage({ code }: { code: string }) {
     }, 0);
     return () => window.clearTimeout(timeout);
   }, [code, room, session]);
+
+  useEffect(() => {
+    if (room?.status === "playing") wasPlayingRef.current = true;
+    if (room?.status === "lobby" && wasPlayingRef.current) {
+      router.replace(`/room/${code}`);
+    }
+  }, [code, room?.status, router]);
 
   useEffect(() => {
     if (!state?.videoId || !playerHost.current || player.current) return;

@@ -168,9 +168,8 @@ async function validateCandidate(
     ) return rejected(`género ${observedGenres.join(" / ") || "desconocido"} fuera del filtro`);
     if (
       constraints.languages?.length &&
-      !constraints.languages.includes("international") &&
-      candidate.language &&
-      !constraints.languages.includes(candidate.language as "es" | "en" | "international")
+      (!candidate.language ||
+        !constraints.languages.includes(candidate.language as "es" | "en" | "international"))
     ) return rejected(`idioma ${candidate.language || "desconocido"} fuera del filtro`);
 
     return {

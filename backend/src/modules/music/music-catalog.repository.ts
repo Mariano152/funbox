@@ -35,6 +35,7 @@ export class MusicCatalogRepository {
       semantic_description: string | null;
       musicbrainz_recording_id: string | null;
       musicbrainz_artist_id: string | null;
+      language: string | null;
       youtube_video_id: string;
       youtube_views: number;
       youtube_published_at: Date | null;
@@ -43,7 +44,7 @@ export class MusicCatalogRepository {
       knownness_confidence: number | null;
     }>>`
       select normalized_key, title, artist, release_year, primary_genre, genres, tags,
-        semantic_description, musicbrainz_recording_id, musicbrainz_artist_id,
+        semantic_description, musicbrainz_recording_id, musicbrainz_artist_id, language,
         youtube_video_id, youtube_views, youtube_published_at, youtube_checked_at,
         knownness_score, knownness_confidence
       from public.music_catalog
@@ -78,6 +79,11 @@ export class MusicCatalogRepository {
       difficultyScore: Math.round(100 - (row.knownness_score ?? 50)),
       recordingMbid: row.musicbrainz_recording_id ?? undefined,
       artistMbid: row.musicbrainz_artist_id ?? undefined,
+      language: row.language === "es" || row.language === "en"
+        ? row.language
+        : row.language
+          ? "international"
+          : undefined,
       youtubeVideoId: row.youtube_video_id,
       youtubeViews: row.youtube_views,
       youtubePublishedAt: row.youtube_published_at,
