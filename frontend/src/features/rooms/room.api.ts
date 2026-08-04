@@ -19,6 +19,9 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers,
+    // El estado de una sala cambia en tiempo real; una respuesta cacheada
+    // puede dejar a un jugador en la partida anterior después de "Volver a jugar".
+    cache: "no-store",
   });
   const body = await response.json();
   if (!response.ok) throw new Error(body.message ?? "No pudimos completar la acción");

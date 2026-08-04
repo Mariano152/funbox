@@ -1,5 +1,5 @@
 import { API_URL } from "@/features/rooms/room.api";
-import type { PlayerSession } from "@/features/rooms/room.types";
+import type { PlayerSession, Room } from "@/features/rooms/room.types";
 
 export interface MusicAnswerResult {
   songCorrect: boolean;
@@ -120,7 +120,7 @@ export function setMusicPaused(code: string, paused: boolean) {
 }
 
 export function returnMusicToLobby(code: string) {
-  return musicRequest(`/${code}/return-to-lobby`, { method: "POST", body: "{}" });
+  return musicRequest<Room>(`/${code}/return-to-lobby`, { method: "POST", body: "{}" });
 }
 
 export function prepareManualMusicRound(

@@ -27,12 +27,16 @@
     "catalog:progress": "tsx src/modules/music/catalog-progress.ts",
     "catalog:youtube": "tsx src/modules/music/catalog-youtube-fill.ts",
     "catalog:youtube:progress": "tsx src/modules/music/catalog-youtube-progress.ts",
-    "catalog:youtube:views": "tsx src/modules/music/catalog-youtube-views.ts"
+    "catalog:youtube:views": "tsx src/modules/music/catalog-youtube-views.ts",
+    "catalog:languages:youtube": "tsx src/modules/music/catalog-language-youtube.ts",
+    "catalog:languages:lrclib": "tsx src/modules/music/catalog-language-lrclib.ts",
+    "catalog:languages:gemini": "tsx src/modules/music/catalog-language-gemini.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
     "dotenv": "^17.2.3",
     "fastify": "^5.7.4",
+    "franc-min": "^6.2.0",
     "postgres": "^3.4.9",
     "socket.io": "^4.8.3",
     "zod": "^4.3.5"

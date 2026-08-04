@@ -33,6 +33,10 @@ yarn-error.log*
 /backend/*.log
 /backend/*.checkpoint.ndjson
 /backend/run-youtube-*.ps1
+# Artefactos efímeros de enriquecimiento/descarga del catálogo. Los scripts
+# fuente de backend/src/modules/music sí se conservan para futuras corridas.
+/backend/catalog-*.log
+/backend/catalog-*.checkpoint.ndjson
 
 # env files (can opt-in for committing if needed)
 .env*

@@ -126,7 +126,7 @@ export function LobbyPage({ code }: { code: string }) {
   }
 
   if (room.status === "playing" && room.gameKey === "guess-the-song") {
-    return <MusicTvPage code={code} room={room} />;
+    return <MusicTvPage code={code} room={room} onReturnToLobby={updateRoom} />;
   }
 
   return (

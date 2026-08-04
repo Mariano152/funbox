@@ -7,7 +7,15 @@ import type { Room } from "@/features/rooms/room.types";
 import { getMusicState, returnMusicToLobby, setMusicPaused, type MusicPublicState } from "./music.api";
 import { useMusicSocket } from "./use-music-socket";
 
-export function MusicTvPage({ code, room }: { code: string; room: Room }) {
+export function MusicTvPage({
+  code,
+  room,
+  onReturnToLobby,
+}: {
+  code: string;
+  room: Room;
+  onReturnToLobby: (room: Room) => void;
+}) {
   const [state, setState] = useState<MusicPublicState | null>(null);
   const [seconds, setSeconds] = useState(0);
   const [djAddress, setDjAddress] = useState(`/dj/${code}`);
@@ -66,7 +74,10 @@ export function MusicTvPage({ code, room }: { code: string; room: Room }) {
     setReplayWorking(true);
     setReplayError("");
     try {
-      await returnMusicToLobby(code);
+      const lobbyRoom = await returnMusicToLobby(code);
+      // No esperamos al socket ni al siguiente sondeo: la pantalla anfitriona
+      // cambia al lobby con la respuesta autoritativa del backend.
+      onReturnToLobby(lobbyRoom);
       setReplayWorking(false);
     } catch (reason) {
       setReplayError(

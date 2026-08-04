@@ -41,6 +41,7 @@ export class RoomsController {
 
   findByCode = async (request: FastifyRequest, reply: FastifyReply) => {
     const { code } = roomCodeParamsSchema.parse(request.params);
+    reply.header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
     return reply.send(await this.service.findRoom(code));
   };
 
