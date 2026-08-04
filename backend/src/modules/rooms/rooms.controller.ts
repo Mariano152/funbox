@@ -6,6 +6,7 @@ import {
   createRoomBodySchema,
   joinRoomBodySchema,
   roomCodeParamsSchema,
+  roomPlayerParamsSchema,
   startRoomBodySchema,
   updateMusicConfigBodySchema,
 } from "./rooms.schemas.js";
@@ -35,6 +36,13 @@ export class RoomsController {
     const { code } = roomCodeParamsSchema.parse(request.params);
     const { playerId, reconnectToken, isDj } = changeDjBodySchema.parse(request.body);
     const room = await this.service.changeDjRole(code, playerId, reconnectToken, isDj);
+    publishRoomUpdated(room);
+    return reply.send(room);
+  };
+
+  removePlayer = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { code, playerId } = roomPlayerParamsSchema.parse(request.params);
+    const room = await this.service.removePlayer(code, playerId);
     publishRoomUpdated(room);
     return reply.send(room);
   };

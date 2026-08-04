@@ -51,6 +51,7 @@ export interface RoomsRepository {
   isPlayerTokenValid(code: string, playerId: string, reconnectTokenHash: string): Promise<boolean>;
   updateAvatar(code: string, playerId: string, avatarKey: AvatarKey, avatarColor: AvatarColor): Promise<StoredRoom | null>;
   updateDjRole(code: string, playerId: string, isDj: boolean): Promise<StoredRoom | null>;
+  removePlayer(code: string, playerId: string): Promise<StoredRoom | null>;
   updateGameConfig(code: string, gameConfig: GameConfig): Promise<StoredRoom | null>;
   assignHost(code: string, playerId?: string): Promise<StoredRoom | null>;
   updateStatus(code: string, status: StoredRoom["status"]): Promise<StoredRoom | null>;

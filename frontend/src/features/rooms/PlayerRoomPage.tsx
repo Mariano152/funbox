@@ -55,7 +55,7 @@ export function PlayerRoomPage({ code }: { code: string }) {
     setChangingDj(true);
     setError("");
     try {
-      const nextRoom = await changeDjRole(session, !me.isDj);
+      const nextRoom = await changeDjRole(session, true);
       setRoom(nextRoom);
       const confirmedMe = nextRoom.players.find((player) => player.id === session.playerId);
       if (confirmedMe?.isDj) {

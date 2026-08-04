@@ -222,7 +222,13 @@
 }
 .players-grid-eight .player-stage { min-height: 0; height: clamp(88px, 14vh, 132px); }
 .players-grid-eight .jelly { width: min(7vw, 105px); min-width: 70px; max-height: 12vh; }
-.player-card { min-width: 0; text-align: center; }
+.player-card { min-width: 0; position: relative; text-align: center; }
+.remove-player-button {
+  width: 25px; height: 25px; position: absolute; top: 0; right: 4px; z-index: 4;
+  border: 1px solid #ff9bc8aa; border-radius: 50%; background: #3a1230d9; color: #ffb2d4;
+  cursor: pointer; font: 1.15rem/1 Arial, sans-serif;
+}
+.remove-player-button:hover { background: #b62667; color: white; }
 .player-enter { animation: playerEnter .5s cubic-bezier(.2, 1.5, .5, 1) both; }
 .player-stage {
   position: relative;
@@ -759,6 +765,7 @@
   background: #ffffff0e; color: white; cursor: pointer; white-space: nowrap;
 }
 .dj-role-card button:disabled { opacity: .35; cursor: not-allowed; }
+.dj-role-card.selected button { display: none; }
 .dj-required-note { color: #e5ca75; font: .65rem Arial, sans-serif; }
 .music-player-card {
   --player-color: var(--cyan);

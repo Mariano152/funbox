@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FunboxLogo } from "@/features/games/FunboxLogo";
@@ -22,7 +21,6 @@ import { useMusicSocket } from "./use-music-socket";
 import { loadYoutubeApi, type YoutubePlayer } from "./youtube-player";
 
 export function DjPage({ code }: { code: string }) {
-  const router = useRouter();
   const [token, setToken] = useState("");
   const [session, setSession] = useState<PlayerSession | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
@@ -41,7 +39,6 @@ export function DjPage({ code }: { code: string }) {
   const startingRef = useRef(false);
   const playerStateRef = useRef(-1);
   const recoveryRef = useRef({ videoId: "", reloads: 0, replacing: false });
-  const wasPlayingRef = useRef(false);
   const updateState = useCallback((next: MusicPublicState) => setState(next), []);
   const updateRoom = useCallback((next: Room) => setRoom(next), []);
   useMusicSocket(code, updateState);
@@ -133,11 +130,8 @@ export function DjPage({ code }: { code: string }) {
   }, [code, room, session]);
 
   useEffect(() => {
-    if (room?.status === "playing") wasPlayingRef.current = true;
-    if (room?.status === "lobby" && wasPlayingRef.current) {
-      router.replace(`/room/${code}`);
-    }
-  }, [code, room?.status, router]);
+    if (room?.status === "lobby") player.current?.pauseVideo();
+  }, [room?.status]);
 
   useEffect(() => {
     if (!state?.videoId || !playerHost.current || player.current) return;
@@ -174,7 +168,12 @@ export function DjPage({ code }: { code: string }) {
               });
           },
           onError: (event) => {
-            void replaceFailedVideo(`YouTube rechazó el video (código ${event.data})`);
+            if (recoveryRef.current.reloads < 1) {
+              recoveryRef.current.reloads += 1;
+              rebuildPlayer(`YouTube rechazó el video (${event.data}); recargando automáticamente...`);
+              return;
+            }
+            void replaceFailedVideo(`YouTube rechazó el video (${event.data}) tras recargarlo`);
           },
         },
       });
@@ -182,7 +181,7 @@ export function DjPage({ code }: { code: string }) {
     return () => {
       cancelled = true;
     };
-  }, [code, playerGeneration, replaceFailedVideo, state?.videoId, updateState]);
+  }, [code, playerGeneration, rebuildPlayer, replaceFailedVideo, state?.videoId, updateState]);
 
   useEffect(() => {
     return () => {

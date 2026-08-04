@@ -83,6 +83,10 @@ export function changeDjRole(session: PlayerSession, isDj: boolean) {
   });
 }
 
+export function removeRoomPlayer(code: string, playerId: string) {
+  return apiRequest<Room>(`/api/rooms/${code}/players/${playerId}`, { method: "DELETE" });
+}
+
 export function updateMusicConfig(code: string, gameConfig: object) {
   return apiRequest<Room>(`/api/rooms/${code}/music-config`, {
     method: "PATCH",

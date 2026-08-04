@@ -7,7 +7,7 @@ import { getGame } from "@/features/games/game-catalog";
 import { MusicTvPage } from "@/features/music/MusicTvPage";
 import { MusicConfigFields } from "@/features/music/MusicConfigFields";
 import { DEFAULT_MUSIC_CONFIG, type MusicGameConfig } from "@/features/music/music.types";
-import { getRoom, updateMusicConfig } from "@/features/rooms/room.api";
+import { getRoom, removeRoomPlayer, updateMusicConfig } from "@/features/rooms/room.api";
 import type { Room, RoomPlayer } from "@/features/rooms/room.types";
 import { useRoomSocket } from "@/features/rooms/use-room-socket";
 
@@ -21,7 +21,15 @@ function FunboxLogo() {
   );
 }
 
-function PlayerCard({ player, index }: { player: RoomPlayer; index: number }) {
+function PlayerCard({
+  player,
+  index,
+  onRemove,
+}: {
+  player: RoomPlayer;
+  index: number;
+  onRemove: () => void;
+}) {
   return (
     <article className={`player-card player-${player.avatarColor} player-enter`}>
       <div className="player-stage">
@@ -33,6 +41,14 @@ function PlayerCard({ player, index }: { player: RoomPlayer; index: number }) {
         <span className="online-dot" />
         {player.nickname}
       </div>
+      <button
+        className="remove-player-button"
+        type="button"
+        onClick={onRemove}
+        aria-label={`Sacar a ${player.nickname}`}
+      >
+        ×
+      </button>
     </article>
   );
 }
@@ -62,6 +78,7 @@ export function LobbyPage({ code }: { code: string }) {
   const [savingConfig, setSavingConfig] = useState(false);
   const [configError, setConfigError] = useState("");
   const [musicConfig, setMusicConfig] = useState<MusicGameConfig>(DEFAULT_MUSIC_CONFIG);
+  const [removingPlayer, setRemovingPlayer] = useState<string | null>(null);
   const updateRoom = useCallback((nextRoom: Room) => {
     setRoom(nextRoom);
     if (nextRoom.gameKey === "guess-the-song") {
@@ -125,6 +142,19 @@ export function LobbyPage({ code }: { code: string }) {
     }
   }
 
+  async function removePlayer(player: RoomPlayer) {
+    if (removingPlayer) return;
+    setRemovingPlayer(player.id);
+    setError("");
+    try {
+      updateRoom(await removeRoomPlayer(code, player.id));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No pudimos sacar al jugador");
+    } finally {
+      setRemovingPlayer(null);
+    }
+  }
+
   if (room.status === "playing" && room.gameKey === "guess-the-song") {
     return <MusicTvPage code={code} room={room} onReturnToLobby={updateRoom} />;
   }
@@ -175,12 +205,14 @@ export function LobbyPage({ code }: { code: string }) {
           {room.gameKey === "guess-the-song" && (
             <div className="dj-stage-slot">
               {dj
-                ? <PlayerCard player={dj} index={8} />
+                ? <PlayerCard player={dj} index={8} onRemove={() => void removePlayer(dj)} />
                 : <div className="dj-empty-slot"><strong>Cabina DJ</strong><span>Un jugador puede ocuparla</span></div>}
             </div>
           )}
           <div className="players-grid players-grid-eight">
-            {players.map((player, index) => <PlayerCard key={player.id} player={player} index={index} />)}
+            {players.map((player, index) => (
+              <PlayerCard key={player.id} player={player} index={index} onRemove={() => void removePlayer(player)} />
+            ))}
             {emptySlots.map((_, index) => <EmptySlot key={index} number={players.length + index + 1} />)}
           </div>
 

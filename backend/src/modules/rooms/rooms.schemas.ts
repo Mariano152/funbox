@@ -12,6 +12,10 @@ export const roomCodeParamsSchema = z.object({
   code: z.string().trim().toUpperCase().length(4).regex(/^[A-Z]+$/),
 });
 
+export const roomPlayerParamsSchema = roomCodeParamsSchema.extend({
+  playerId: z.string().uuid(),
+});
+
 export const joinRoomBodySchema = z.object({
   nickname: z.string().trim().min(1).max(16),
   reconnectToken: z.string().min(32).optional(),

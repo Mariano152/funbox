@@ -194,6 +194,9 @@ export class RoomsService {
     if (!authorized) throw roomError("La sesión del jugador no es válida", 401);
 
     const currentDj = room.players.find((player) => player.isDj);
+    if (!isDj && currentDj?.id === playerId) {
+      throw roomError("La cabina DJ queda reservada hasta que termine la sala", 409);
+    }
     if (isDj && currentDj && currentDj.id !== playerId) {
       throw roomError(`${currentDj.nickname} ya ocupa la cabina DJ`, 409);
     }
@@ -214,6 +217,22 @@ export class RoomsService {
     }
 
     if (!updatedRoom) throw roomError("No pudimos transferir el liderazgo", 409);
+    return updatedRoom;
+  }
+
+  async removePlayer(code: string, playerId: string) {
+    const room = await this.repository.findByCode(code);
+    if (!room) throw roomError("Sala no encontrada", 404);
+    const removedPlayer = room.players.find((player) => player.id === playerId);
+    if (!removedPlayer) throw roomError("Jugador no encontrado", 404);
+
+    let updatedRoom = await this.repository.removePlayer(code, playerId);
+    if (!updatedRoom) throw roomError("No pudimos sacar al jugador", 409);
+    if (removedPlayer.isHost) {
+      const nextLeader = updatedRoom.players.find((player) => !player.isDj);
+      updatedRoom = await this.repository.assignHost(code, nextLeader?.id);
+    }
+    if (!updatedRoom) throw roomError("No pudimos actualizar el liderazgo", 409);
     return updatedRoom;
   }
 

@@ -172,6 +172,18 @@ export class SupabaseRoomsRepository implements RoomsRepository {
     }
   }
 
+  async removePlayer(code: string, playerId: string) {
+    const removed = await this.database`
+      delete from public.room_players as player
+      using public.rooms as room
+      where player.room_id = room.id
+        and room.code = ${code}
+        and player.id = ${playerId}
+      returning player.id
+    `;
+    return removed.count > 0 ? this.findByCode(code) : null;
+  }
+
   async assignHost(code: string, playerId?: string) {
     const [room] = await this.database<{ id: string }[]>`
       select id from public.rooms where code = ${code} limit 1
