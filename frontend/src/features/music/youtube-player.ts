@@ -12,6 +12,7 @@ interface YoutubeApi {
     options: {
       width: string;
       height: string;
+      host?: string;
       playerVars: Record<string, number | string>;
       events: {
         onReady: () => void;

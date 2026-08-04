@@ -49,6 +49,12 @@ export class MusicController {
     return reply.send(await this.service.prepareRound(code, djToken));
   };
 
+  replace = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { code } = musicCodeParamsSchema.parse(request.params);
+    const { djToken } = djTokenBodySchema.parse(request.body);
+    return reply.send(await this.service.replaceRoundTrack(code, djToken));
+  };
+
   started = async (request: FastifyRequest, reply: FastifyReply) => {
     const { code } = musicCodeParamsSchema.parse(request.params);
     const { djToken } = djTokenBodySchema.parse(request.body);

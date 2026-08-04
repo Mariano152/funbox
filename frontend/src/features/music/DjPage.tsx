@@ -13,6 +13,7 @@ import {
   markMusicStarted,
   prepareManualMusicRound,
   prepareMusicRound,
+  replaceMusicRound,
   revealMusicRound,
   type MusicPublicState,
 } from "./music.api";
@@ -28,6 +29,7 @@ export function DjPage({ code }: { code: string }) {
   const [working, setWorking] = useState(false);
   const [playRequested, setPlayRequested] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
+  const [playerGeneration, setPlayerGeneration] = useState(0);
   const [manualTrack, setManualTrack] = useState({ title: "", artist: "", youtubeUrl: "" });
   const playerHost = useRef<HTMLDivElement>(null);
   const player = useRef<YoutubePlayer | null>(null);
@@ -35,10 +37,50 @@ export function DjPage({ code }: { code: string }) {
   const stateRef = useRef<MusicPublicState | null>(null);
   const preparingRef = useRef(false);
   const startingRef = useRef(false);
+  const playerStateRef = useRef(-1);
+  const recoveryRef = useRef({ videoId: "", reloads: 0, replacing: false });
   const updateState = useCallback((next: MusicPublicState) => setState(next), []);
   const updateRoom = useCallback((next: Room) => setRoom(next), []);
   useMusicSocket(code, updateState);
   useRoomSocket(code, updateRoom);
+
+  const rebuildPlayer = useCallback((message: string) => {
+    if (!stateRef.current?.videoId) return;
+    player.current?.destroy();
+    player.current = null;
+    playerStateRef.current = -1;
+    startingRef.current = false;
+    setPlayerReady(false);
+    setPlayRequested(false);
+    setError(message);
+    setPlayerGeneration((current) => current + 1);
+  }, []);
+
+  const replaceFailedVideo = useCallback(async (reason: string) => {
+    const currentToken = tokenRef.current;
+    const currentVideoId = stateRef.current?.videoId;
+    if (!currentToken || !currentVideoId || recoveryRef.current.replacing) return;
+    recoveryRef.current.replacing = true;
+    setError(`${reason}. Buscando una canción de reserva…`);
+    try {
+      const nextState = await replaceMusicRound(code, currentToken);
+      recoveryRef.current = {
+        videoId: nextState.videoId ?? "",
+        reloads: 0,
+        replacing: false,
+      };
+      setPlayRequested(false);
+      setError("");
+      updateState(nextState);
+    } catch (reasonCaught) {
+      recoveryRef.current.replacing = false;
+      setError(
+        reasonCaught instanceof Error
+          ? reasonCaught.message
+          : "No pudimos cargar una canción de reserva",
+      );
+    }
+  }, [code, updateState]);
 
   useEffect(() => {
     tokenRef.current = token;
@@ -95,14 +137,22 @@ export function DjPage({ code }: { code: string }) {
       player.current = new YT.Player(playerHost.current, {
         width: "100%",
         height: "100%",
-        playerVars: { playsinline: 1, origin: window.location.origin },
+        host: "https://www.youtube-nocookie.com",
+        playerVars: {
+          enablejsapi: 1,
+          playsinline: 1,
+          origin: window.location.origin,
+        },
         events: {
           onReady: () => setPlayerReady(true),
           onAutoplayBlocked: () => {
-            setError("El navegador bloqueó el audio automático. Pulsa “Activar audio” una sola vez.");
+            setError("El navegador bloqueó el inicio automático. Pulsa Play en YouTube o recarga el video.");
           },
           onStateChange: (event) => {
+            playerStateRef.current = event.data;
             if (event.data !== 1 || stateRef.current?.phase !== "ready" || startingRef.current) return;
+            recoveryRef.current.reloads = 0;
+            setError("");
             const currentToken = tokenRef.current;
             if (!currentToken) return;
             startingRef.current = true;
@@ -114,7 +164,7 @@ export function DjPage({ code }: { code: string }) {
               });
           },
           onError: (event) => {
-            setError(`YouTube no pudo reproducir este video (código ${event.data}).`);
+            void replaceFailedVideo(`YouTube rechazó el video (código ${event.data})`);
           },
         },
       });
@@ -122,7 +172,7 @@ export function DjPage({ code }: { code: string }) {
     return () => {
       cancelled = true;
     };
-  }, [code, state?.videoId, updateState]);
+  }, [code, playerGeneration, replaceFailedVideo, state?.videoId, updateState]);
 
   useEffect(() => {
     return () => {
@@ -133,14 +183,33 @@ export function DjPage({ code }: { code: string }) {
 
   useEffect(() => {
     if (!playerReady || !state?.videoId) return;
+    if (recoveryRef.current.videoId !== state.videoId) {
+      recoveryRef.current = { videoId: state.videoId, reloads: 0, replacing: false };
+    }
     player.current?.loadVideoById({
       videoId: state.videoId,
       startSeconds: state.startSeconds ?? 0,
       endSeconds: state.endSeconds ?? state.clipDuration,
     });
     const frame = requestAnimationFrame(() => setPlayRequested(true));
-    return () => cancelAnimationFrame(frame);
-  }, [playerReady, state?.videoId, state?.startSeconds, state?.endSeconds, state?.clipDuration]);
+    const slowLoadTimeout = window.setTimeout(() => {
+      if (stateRef.current?.phase !== "ready" || startingRef.current) return;
+      if (playerStateRef.current === 3) {
+        if (recoveryRef.current.reloads < 1) {
+          recoveryRef.current.reloads += 1;
+          rebuildPlayer("YouTube sigue cargando; reintentando automáticamente…");
+        } else {
+          void replaceFailedVideo("YouTube no terminó de cargar después del reintento");
+        }
+      } else if (playerStateRef.current === -1 || playerStateRef.current === 5) {
+        setError("El dispositivo bloqueó el autoplay con sonido. Pulsa Play en el reproductor de YouTube.");
+      }
+    }, 15_000);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(slowLoadTimeout);
+    };
+  }, [playerGeneration, playerReady, rebuildPlayer, replaceFailedVideo, state?.videoId, state?.startSeconds, state?.endSeconds, state?.clipDuration]);
 
   useEffect(() => {
     if (
@@ -244,15 +313,9 @@ export function DjPage({ code }: { code: string }) {
     }
   }
 
-  function requestPlayback() {
-    if (!state?.videoId) return;
-    player.current?.loadVideoById({
-      videoId: state.videoId,
-      startSeconds: state.startSeconds ?? 0,
-      endSeconds: state.endSeconds ?? state.clipDuration,
-    });
-    setPlayRequested(true);
-    setError("");
+  function reloadPlayback() {
+    recoveryRef.current.reloads = 0;
+    rebuildPlayer("Reconectando con YouTube…");
   }
 
   async function prepareManual(event: FormEvent<HTMLFormElement>) {
@@ -287,7 +350,7 @@ export function DjPage({ code }: { code: string }) {
               </div>
             )}
             <div className="youtube-player-mount">
-              <div ref={playerHost} />
+              <div key={playerGeneration} ref={playerHost} />
             </div>
           </div>
           <p className="youtube-policy-note">
@@ -310,11 +373,11 @@ export function DjPage({ code }: { code: string }) {
                   ? "Iniciando automáticamente. Si aparece un anuncio, usa los controles normales de YouTube."
                   : "Canción lista. Esperando al reproductor…"}
               </div>
-              {error && (
-                <button className="start-button dj-action" onClick={requestPlayback}>
-                  <span>Activar audio</span><i>♫</i>
+              <div className="dj-playback-actions">
+                <button className="dj-reload-button" onClick={reloadPlayback}>
+                  ↻ Recargar video
                 </button>
-              )}
+              </div>
             </>
           )}
           {state?.phase === "loading" && <div className="waiting-pill"><i /> La IA está eligiendo…</div>}

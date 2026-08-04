@@ -11,6 +11,7 @@ export const musicRoutes: FastifyPluginAsync = async (app) => {
   app.post("/:code/answers", controller.answer);
   app.put("/:code/answers/draft", controller.draft);
   app.post("/:code/rounds/prepare", controller.prepare);
+  app.post("/:code/rounds/replace", controller.replace);
   app.post("/:code/rounds/manual", controller.manual);
   app.post("/:code/rounds/started", controller.started);
   app.post("/:code/rounds/finish-clip", controller.finishClip);

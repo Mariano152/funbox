@@ -99,7 +99,7 @@ export function getMusicSuggestions(type: "song" | "artist", query: string) {
   return musicRequest<{ suggestions: string[] }>(`/suggestions?${params}`);
 }
 
-function djAction(code: string, action: "prepare" | "started" | "finish-clip" | "reveal", djToken: string) {
+function djAction(code: string, action: "prepare" | "replace" | "started" | "finish-clip" | "reveal", djToken: string) {
   return musicRequest<MusicPublicState>(`/${code}/rounds/${action}`, {
     method: "POST",
     body: JSON.stringify({ djToken }),
@@ -107,6 +107,7 @@ function djAction(code: string, action: "prepare" | "started" | "finish-clip" | 
 }
 
 export const prepareMusicRound = (code: string, token: string) => djAction(code, "prepare", token);
+export const replaceMusicRound = (code: string, token: string) => djAction(code, "replace", token);
 export const markMusicStarted = (code: string, token: string) => djAction(code, "started", token);
 export const finishMusicClip = (code: string, token: string) => djAction(code, "finish-clip", token);
 export const revealMusicRound = (code: string, token: string) => djAction(code, "reveal", token);

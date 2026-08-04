@@ -143,10 +143,11 @@ export class MusicService {
     const era = String(config.era ?? "all");
     const recentTracks = await this.history.findRecent();
     const excluded = recentTracks.map((track) => `${track.title}|${track.artist}`).slice(0, 24);
+    const backupTracks = 3;
     const selection = await selectCatalogSongPack(
       era,
       excluded,
-      rounds,
+      rounds + backupTracks,
       prompt,
       catalogFilters(config),
       this.catalog,
@@ -327,6 +328,51 @@ export class MusicService {
       publishMusicUpdated(code, state.publicState);
       throw reason;
     }
+  }
+
+  async replaceRoundTrack(code: string, token: string) {
+    const room = await this.requireMusicRoom(code);
+    if (room.status !== "playing") throw musicError("La partida todavía no ha comenzado", 409);
+    const state = await this.requireDj(code, token);
+    if (state.publicState.phase !== "ready" || !state.secretTrack) {
+      throw musicError("La canción sólo puede reemplazarse antes de comenzar", 409);
+    }
+    const failedTrack = state.secretTrack;
+    const replacement = state.queuedTracks?.shift();
+    if (!replacement) {
+      throw musicError("No quedan canciones de reserva para esta partida", 409);
+    }
+    const video = replacement.preparedVideoId && replacement.preparedDurationSeconds
+      ? {
+        videoId: replacement.preparedVideoId,
+        durationSeconds: replacement.preparedDurationSeconds,
+      }
+      : await findYouTubeVideo(replacement.title, replacement.artist, {
+        cachedVideoId: replacement.youtubeVideoId,
+        recordingMbid: replacement.recordingMbid,
+      });
+    const interval = randomInterval(video.durationSeconds, state.publicState.clipDuration);
+    state.secretTrack = replacement;
+    state.usedTracks.push(`${replacement.title}|${replacement.artist}`);
+    state.answerDrafts = {};
+    state.publicState = {
+      ...state.publicState,
+      phase: "ready",
+      error: undefined,
+      revealedTrack: undefined,
+      answerResults: {},
+      deadlineAt: undefined,
+      videoId: video.videoId,
+      ...interval,
+    };
+    await this.history.add(room.id, String(room.gameConfig.era ?? "all"), replacement);
+    await this.saveState(code, state);
+    publishMusicUpdated(code, state.publicState);
+    console.warn(
+      `[Música ${code}] Video reemplazado sin consumir ronda: ` +
+      `${failedTrack.title} — ${failedTrack.artist} -> ${replacement.title} — ${replacement.artist}.`,
+    );
+    return state.publicState;
   }
 
   async submitAnswer(

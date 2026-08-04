@@ -1150,6 +1150,18 @@
 }
 .dj-controls h1 { margin: 0; font-size: clamp(2.5rem, 4vw, 4.5rem); line-height: .9; }
 .dj-action { width: 100%; min-width: 0; }
+.dj-playback-actions { display: grid; gap: 10px; }
+.dj-reload-button {
+  width: 100%;
+  padding: 13px 16px;
+  border: 1px solid #ffffff2e;
+  border-radius: 16px;
+  color: #d8d2f1;
+  background: #ffffff0d;
+  font-weight: 800;
+  cursor: pointer;
+}
+.dj-reload-button:hover { border-color: var(--cyan); background: #22e4f012; }
 .confirm-action { background: linear-gradient(#66dfb2, #26a77b); border-color: #9affd5; box-shadow: inset 0 3px 3px #ffffff4d, 0 8px 0 #126248, 0 0 32px #38d39d50; }
 .dj-instruction { padding: 15px; border-radius: 17px; background: #ffd84d12; color: #e4cc84; font: .72rem/1.5 Arial, sans-serif; }
 .dj-now-playing, .dj-reveal { padding: 22px; display: grid; gap: 7px; border-radius: 22px; background: #8b5cf620; }
