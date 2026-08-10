@@ -151,7 +151,7 @@ export class MusicService {
       prompt,
       catalogFilters(config),
       this.catalog,
-      { candidateTarget: 70, requirePrompt: Boolean(prompt) },
+      { candidateTarget: rounds * 5, requirePrompt: Boolean(prompt) },
     );
     if (selection.tracks.length < rounds) {
       throw musicError(

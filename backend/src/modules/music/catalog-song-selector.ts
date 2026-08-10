@@ -88,7 +88,12 @@ export async function selectCatalogSongPack(
   const objectivelyValid = await filterObjectiveCandidates(
     sqlCandidates, constraints, era, excluded,
   );
-  const objectiveCandidates = objectivelyValid.slice(0, 100);
+  // Con prompt conservamos hasta cinco candidatas por ronda de la semilla SQL.
+  // Todo el pool disponible se embebe y se ordena antes de elegir las rondas.
+  const objectiveCandidateLimit = prompt.trim()
+    ? Math.max(count, embeddingOptions.candidateTarget ?? count * 5)
+    : 100;
+  const objectiveCandidates = objectivelyValid.slice(0, objectiveCandidateLimit);
   const cached = await repository.findMetrics(
     objectiveCandidates.map((track) => catalogKey(track.title, track.artist)),
   );

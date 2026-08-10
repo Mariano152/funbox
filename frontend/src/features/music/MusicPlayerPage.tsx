@@ -168,7 +168,7 @@ export function MusicPlayerPage({
         <header className="music-player-header">
           <AvatarCharacter avatarKey={player.avatarKey} compact />
           <div>
-            <p className="phone-eyebrow">Ronda {state?.roundNumber ?? 0}/{state?.totalRounds ?? "—"}</p>
+            <p className="phone-eyebrow">Sala {room.code} · Ronda {state?.roundNumber ?? 0}/{state?.totalRounds ?? "—"}</p>
             <strong>{player.nickname}</strong>
           </div>
           <div className="music-player-score"><span>Puntos</span><strong>{score}</strong></div>

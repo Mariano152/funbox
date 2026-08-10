@@ -55,7 +55,7 @@ export function PlayerRoomPage({ code }: { code: string }) {
     setChangingDj(true);
     setError("");
     try {
-      const nextRoom = await changeDjRole(session, true);
+      const nextRoom = await changeDjRole(session, !me.isDj);
       setRoom(nextRoom);
       const confirmedMe = nextRoom.players.find((player) => player.id === session.playerId);
       if (confirmedMe?.isDj) {
@@ -78,14 +78,30 @@ export function PlayerRoomPage({ code }: { code: string }) {
     return <main className="phone-shell"><section className="phone-card success-card"><p>{error || "Recuperando tu gelatina…"}</p></section></main>;
   }
 
+
+  if (!me) {
+    return (
+      <main className="phone-shell">
+        <section className="phone-card success-card">
+          <p className="phone-eyebrow">Sala {room.code}</p>
+          <h1>Saliste de la sala</h1>
+          <p>La pantalla principal te sacó de esta partida.</p>
+          <button className="start-button" onClick={() => router.push(`/join?code=${room.code}`)}>
+            <span>Volver a entrar</span><i>→</i>
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   if (room.status === "playing" && room.gameKey === "guess-the-song" && me && !me.isDj) {
     return <MusicPlayerPage room={room} player={me} session={session} />;
   }
 
   return (
     <main className="phone-shell">
-      <section className={`phone-card success-card player-phone player-phone-${me?.avatarColor ?? "cyan"}`}>
-        {me && <AvatarCharacter avatarKey={me.avatarKey} compact />}
+      <section className={`phone-card success-card player-phone player-phone-${me.avatarColor}`}>
+        <AvatarCharacter avatarKey={me.avatarKey} compact />
         <p className="phone-eyebrow">
           {me?.isDj ? "Tú eres el DJ" : me?.isHost ? "Tú diriges la fiesta" : `Sala ${room.code}`}
         </p>

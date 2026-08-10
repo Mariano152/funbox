@@ -610,13 +610,11 @@ export async function validateRankAndSelect(
       const difficultyFit = hasDifficulty
         ? 1 - Math.min(1, Math.abs(effectiveKnownness - targetKnownness) / 70)
         : 0.5;
-      const score = hasDifficulty && subjectiveActive
-        ? difficultyFit * 0.70 + confidence * 0.15 + subjectiveSimilarity * 0.15
+      const score = subjectiveActive
+        ? subjectiveSimilarity
         : hasDifficulty
           ? difficultyFit * 0.85 + confidence * 0.15
-          : subjectiveActive
-            ? subjectiveSimilarity * 0.55 + knownness * 0.45
-            : knownness;
+          : knownness;
       return {
         track, score, difficultyFit, subjectiveSimilarity,
         effectiveKnownness, rawKnownness, confidence, embedding,
@@ -648,46 +646,11 @@ export async function validateRankAndSelect(
       `similitudAjustada=${subjectiveSimilarity.toFixed(5)}`,
     ));
   }
-  // Todas conservan una probabilidad positiva, pero la quinta potencia hace
-  // que una coincidencia semántica fuerte sea muchísimo más probable.
-  const RELATED_SEMANTIC_THRESHOLD = 0.20;
   const weightedPool = [...ranked];
   const selected: SongCandidate[] = [];
   while (selected.length < count && weightedPool.length) {
-    const unusedTitles = weightedPool.filter(({ track }) =>
-      !selected.some((selectedTrack) => normalize(selectedTrack.title) === normalize(track.title)));
-    const titlePool = unusedTitles.length ? unusedTitles : weightedPool;
-    const unusedArtists = titlePool.filter(({ track }) =>
-      !selected.some((selectedTrack) => normalize(selectedTrack.artist) === normalize(track.artist)));
-    const choices = unusedArtists.length ? unusedArtists : titlePool;
-    const rawWeights = choices.map(({ score, subjectiveSimilarity, difficultyFit, confidence }) =>
-      hasSubjective && queryVector
-        ? (0.000001 + subjectiveSimilarity ** 5) *
-          Math.exp(difficultyFit * 1.5 + confidence * 0.5)
-        : Math.exp(score * 3));
-    const related = choices.map(({ subjectiveSimilarity }) =>
-      subjectiveSimilarity >= RELATED_SEMANTIC_THRESHOLD);
-    const relatedTotal = rawWeights.reduce(
-      (sum, weight, index) => sum + (related[index] ? weight : 0), 0,
-    );
-    const unrelatedTotal = rawWeights.reduce(
-      (sum, weight, index) => sum + (!related[index] ? weight : 0), 0,
-    );
-    const weights = hasSubjective && queryVector && relatedTotal > 0 && unrelatedTotal > 0
-      ? rawWeights.map((weight, index) => related[index]
-        ? (weight / relatedTotal) * 0.98
-        : (weight / unrelatedTotal) * 0.02)
-      : rawWeights;
-    let cursor = Math.random() * weights.reduce((sum, weight) => sum + weight, 0);
-    let picked = choices.length - 1;
-    for (let index = 0; index < choices.length; index += 1) {
-      cursor -= weights[index];
-      if (cursor <= 0) {
-        picked = index;
-        break;
-      }
-    }
-    const chosen = choices[picked];
+    // ranked ya está ordenado de mayor a menor: elegimos exactamente el primero.
+    const chosen = weightedPool[0];
     selected.push({
       ...chosen.track,
       subjectiveSimilarity: subjectiveActive ? chosen.subjectiveSimilarity : undefined,
@@ -696,7 +659,7 @@ export async function validateRankAndSelect(
     weightedPool.splice(weightedPool.indexOf(chosen), 1);
   }
   console.info(
-    `[Música][Preselección] ${selected.length} candidatas ponderadas; ` +
+    `[Música][Preselección] ${selected.length} candidatas con mayor puntaje; ` +
     `knownness pendiente cuando aún no existen vistas de YouTube.`,
   );
   if (env.MUSIC_DEBUG) selected.forEach((track, index) => {

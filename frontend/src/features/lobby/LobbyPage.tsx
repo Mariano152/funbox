@@ -25,10 +25,12 @@ function PlayerCard({
   player,
   index,
   onRemove,
+  removing,
 }: {
   player: RoomPlayer;
   index: number;
   onRemove: () => void;
+  removing: boolean;
 }) {
   return (
     <article className={`player-card player-${player.avatarColor} player-enter`}>
@@ -45,7 +47,9 @@ function PlayerCard({
         className="remove-player-button"
         type="button"
         onClick={onRemove}
+        disabled={removing}
         aria-label={`Sacar a ${player.nickname}`}
+        title={`Sacar a ${player.nickname}`}
       >
         ×
       </button>
@@ -65,8 +69,34 @@ function EmptySlot({ number }: { number: number }) {
 function JoinQr({ url, code }: { url: string; code: string }) {
   return (
     <a className="qr" href={url} aria-label={`Abrir la sala ${code} para unirse`}>
-      <QRCode value={url} size={78} level="M" bgColor="#ffffff" fgColor="#09091f" />
+      <QRCode value={url} size={148} level="M" bgColor="#ffffff" fgColor="#09091f" />
     </a>
+  );
+}
+
+function normalizeMusicConfig(savedConfig: Record<string, unknown>): MusicGameConfig {
+  const legacyLanguage = typeof savedConfig.language === "string" &&
+    ["es", "en", "international"].includes(savedConfig.language) ? [savedConfig.language] : [];
+  const legacyDifficulty = typeof savedConfig.difficulty === "string" &&
+    ["easy", "medium", "hard"].includes(savedConfig.difficulty) ? [savedConfig.difficulty] : [];
+  return {
+    ...DEFAULT_MUSIC_CONFIG,
+    ...savedConfig,
+    languages: Array.isArray(savedConfig.languages) ? savedConfig.languages : legacyLanguage,
+    difficulties: Array.isArray(savedConfig.difficulties) ? savedConfig.difficulties : legacyDifficulty,
+  } as MusicGameConfig;
+}
+
+function MusicConfigSummary({ config }: { config: MusicGameConfig }) {
+  const difficulty = config.difficulties.map((value) =>
+    ({ easy: "Fácil", medium: "Media", hard: "Difícil" })[value]).join(", ") || "Todas";
+  return (
+    <div className="config-summary" aria-label="Configuración actual de la partida">
+      <span><small>Géneros</small><strong>{config.genres.join(", ") || "Todos"}</strong></span>
+      <span><small>Años</small><strong>{config.yearFrom}–{config.yearTo}</strong></span>
+      <span><small>Artistas</small><strong>{config.artists.join(", ") || "Todos"}</strong></span>
+      <span><small>Dificultad</small><strong>{difficulty}</strong></span>
+    </div>
   );
 }
 
@@ -81,29 +111,6 @@ export function LobbyPage({ code }: { code: string }) {
   const [removingPlayer, setRemovingPlayer] = useState<string | null>(null);
   const updateRoom = useCallback((nextRoom: Room) => {
     setRoom(nextRoom);
-    if (nextRoom.gameKey === "guess-the-song") {
-      const savedConfig = nextRoom.gameConfig as Record<string, unknown>;
-      const legacyLanguage =
-        typeof savedConfig.language === "string" &&
-        ["es", "en", "international"].includes(savedConfig.language)
-          ? [savedConfig.language]
-          : [];
-      const legacyDifficulty =
-        typeof savedConfig.difficulty === "string" &&
-        ["easy", "medium", "hard"].includes(savedConfig.difficulty)
-          ? [savedConfig.difficulty]
-          : [];
-      setMusicConfig({
-        ...DEFAULT_MUSIC_CONFIG,
-        ...savedConfig,
-        languages: Array.isArray(savedConfig.languages)
-          ? savedConfig.languages
-          : legacyLanguage,
-        difficulties: Array.isArray(savedConfig.difficulties)
-          ? savedConfig.difficulties
-          : legacyDifficulty,
-      } as MusicGameConfig);
-    }
   }, []);
   useRoomSocket(code, updateRoom);
 
@@ -144,6 +151,7 @@ export function LobbyPage({ code }: { code: string }) {
 
   async function removePlayer(player: RoomPlayer) {
     if (removingPlayer) return;
+    if (!window.confirm(`¿Sacar a ${player.nickname} de la sala?`)) return;
     setRemovingPlayer(player.id);
     setError("");
     try {
@@ -167,7 +175,10 @@ export function LobbyPage({ code }: { code: string }) {
         <div className="header-actions">
           <span className="player-count">{players.length}/8</span>
           {room.gameKey === "guess-the-song" && (
-            <button className="icon-button config-button" onClick={() => setConfigOpen(true)} aria-label="Configurar juego">⚙</button>
+            <button className="icon-button config-button" onClick={() => {
+              setMusicConfig(normalizeMusicConfig(room.gameConfig));
+              setConfigOpen(true);
+            }} aria-label="Configurar juego">⚙</button>
           )}
           <button className="icon-button" aria-label="Sonido activado">♪</button>
         </div>
@@ -202,16 +213,18 @@ export function LobbyPage({ code }: { code: string }) {
             <span className={`status-pill status-${room.status}`}><i /> {room.status === "lobby" ? "Sala abierta" : "En juego"}</span>
           </div>
 
+          {room.gameKey === "guess-the-song" && <MusicConfigSummary config={normalizeMusicConfig(room.gameConfig)} />}
+
           {room.gameKey === "guess-the-song" && (
             <div className="dj-stage-slot">
               {dj
-                ? <PlayerCard player={dj} index={8} onRemove={() => void removePlayer(dj)} />
+                ? <PlayerCard player={dj} index={8} removing={removingPlayer === dj.id} onRemove={() => void removePlayer(dj)} />
                 : <div className="dj-empty-slot"><strong>Cabina DJ</strong><span>Un jugador puede ocuparla</span></div>}
             </div>
           )}
           <div className="players-grid players-grid-eight">
             {players.map((player, index) => (
-              <PlayerCard key={player.id} player={player} index={index} onRemove={() => void removePlayer(player)} />
+              <PlayerCard key={player.id} player={player} index={index} removing={removingPlayer === player.id} onRemove={() => void removePlayer(player)} />
             ))}
             {emptySlots.map((_, index) => <EmptySlot key={index} number={players.length + index + 1} />)}
           </div>

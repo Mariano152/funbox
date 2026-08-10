@@ -88,7 +88,6 @@ export class RoomsService {
   async joinRoom(code: string, nickname: string, reconnectToken?: string) {
     const room = await this.repository.findByCode(code);
     if (!room) throw roomError("Sala no encontrada", 404);
-    if (room.status !== "lobby") throw roomError("La partida ya comenzó", 409);
 
     const existingPlayer = await this.repository.findPlayerByNickname(code, nickname);
     if (existingPlayer) {
@@ -108,6 +107,10 @@ export class RoomsService {
         reconnected: true,
       };
     }
+
+    // A player who already belongs to the room may recover their session while
+    // the game is running. Only brand-new players are blocked after the start.
+    if (room.status !== "lobby") throw roomError("La partida ya comenzó", 409);
 
     const roomLimit = room.gameKey === "guess-the-song" ? MAX_MUSIC_PARTICIPANTS : MAX_PLAYERS;
     if (room.players.length >= roomLimit) throw roomError("La sala está llena", 409);
@@ -194,9 +197,6 @@ export class RoomsService {
     if (!authorized) throw roomError("La sesión del jugador no es válida", 401);
 
     const currentDj = room.players.find((player) => player.isDj);
-    if (!isDj && currentDj?.id === playerId) {
-      throw roomError("La cabina DJ queda reservada hasta que termine la sala", 409);
-    }
     if (isDj && currentDj && currentDj.id !== playerId) {
       throw roomError(`${currentDj.nickname} ya ocupa la cabina DJ`, 409);
     }
