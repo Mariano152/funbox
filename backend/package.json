@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:music-answers": "tsx src/modules/music/music-answer-matcher.check.ts",
     "db:check": "tsx src/database/check-connection.ts",
     "db:migrate": "tsx src/database/run-migrations.ts",
     "knownness:recalculate": "tsx src/modules/music/knownness-recalculate.ts",

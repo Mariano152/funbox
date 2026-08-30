@@ -9,6 +9,7 @@ import { catalogKey } from "./catalog-utils.js";
 import type { MusicCatalogRepository } from "./music-catalog.repository.js";
 import type { MusicPublicState, MusicRoomState, PreparedMusicTrack } from "./music.types.js";
 import { findYouTubeVideo, getYouTubeVideoDetails, randomInterval } from "./youtube.service.js";
+import { matchesArtistAnswer, matchesSongAnswer } from "./music-answer-matcher.js";
 
 const states = new Map<string, MusicRoomState>();
 
@@ -51,56 +52,6 @@ function catalogFilters(config: GameConfig) {
   };
 }
 
-function normalizeAnswer(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[\[(][^\])]*(?:remaster|live|version|feat|featuring|ft|with|w\/)[^\])]*[\])]/g, "")
-    .replace(/\b(?:feat|featuring|ft|with|w\/)\b.*$/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function editDistance(left: string, right: string) {
-  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
-  for (let row = 1; row <= left.length; row += 1) {
-    let diagonal = previous[0];
-    previous[0] = row;
-    for (let column = 1; column <= right.length; column += 1) {
-      const above = previous[column];
-      previous[column] = Math.min(
-        previous[column] + 1,
-        previous[column - 1] + 1,
-        diagonal + (left[row - 1] === right[column - 1] ? 0 : 1),
-      );
-      diagonal = above;
-    }
-  }
-  return previous[right.length];
-}
-
-function matchesAnswer(candidate: string, expected: string) {
-  const normalizedCandidate = normalizeAnswer(candidate);
-  const normalizedExpected = normalizeAnswer(expected);
-  if (!normalizedCandidate) return false;
-  if (normalizedCandidate === normalizedExpected) return true;
-  const tolerance = normalizedExpected.length >= 12 ? 2 : 1;
-  return editDistance(normalizedCandidate, normalizedExpected) <= tolerance;
-}
-
-function artistNames(value: string) {
-  return value
-    .replace(/\s+(?:feat\.?|ft\.?|featuring|with)\s+/gi, ",")
-    .split(/\s*(?:,|&|\bx\b|\band\b)\s*/i)
-    .map((artist) => artist.trim())
-    .filter(Boolean);
-}
-
-function matchesArtist(candidate: string, expected: string) {
-  return artistNames(expected).some((artist) => matchesAnswer(candidate, artist));
-}
-
 function applyAnswer(
   state: MusicRoomState,
   playerId: string,
@@ -113,8 +64,8 @@ function applyAnswer(
     artistCorrect: false,
     submitted: false,
   };
-  const songCorrect = previous.songCorrect || matchesAnswer(song, state.secretTrack.title);
-  const artistCorrect = previous.artistCorrect || matchesArtist(artist, state.secretTrack.artist);
+  const songCorrect = previous.songCorrect || matchesSongAnswer(song, state.secretTrack.title);
+  const artistCorrect = previous.artistCorrect || matchesArtistAnswer(artist, state.secretTrack.artist);
   const gained =
     Number(songCorrect && !previous.songCorrect) +
     Number(artistCorrect && !previous.artistCorrect);
