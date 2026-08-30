@@ -5,6 +5,8 @@ import { MusicStateRepository } from "./music/music-state.repository.js";
 import { MusicService } from "./music/music.service.js";
 import { RoomsService } from "./rooms/rooms.service.js";
 import { SupabaseRoomsRepository } from "./rooms/supabase-rooms.repository.js";
+import { TriviaService } from "./trivia/trivia.service.js";
+import { TriviaHistoryRepository } from "./trivia/trivia-history.repository.js";
 
 const database = createDatabaseClient();
 export const roomsRepository = new SupabaseRoomsRepository(database);
@@ -14,4 +16,6 @@ export const musicStateRepository = new MusicStateRepository(database);
 export const musicService = new MusicService(
   roomsRepository, musicHistoryRepository, musicCatalogRepository, musicStateRepository,
 );
-export const roomsService = new RoomsService(roomsRepository, musicService);
+export const triviaHistoryRepository = new TriviaHistoryRepository(database);
+export const triviaService = new TriviaService(roomsRepository, triviaHistoryRepository);
+export const roomsService = new RoomsService(roomsRepository, musicService, triviaService);

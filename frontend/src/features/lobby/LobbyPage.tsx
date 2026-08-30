@@ -10,6 +10,10 @@ import { DEFAULT_MUSIC_CONFIG, type MusicGameConfig } from "@/features/music/mus
 import { getRoom, removeRoomPlayer, updateMusicConfig } from "@/features/rooms/room.api";
 import type { Room, RoomPlayer } from "@/features/rooms/room.types";
 import { useRoomSocket } from "@/features/rooms/use-room-socket";
+import { TriviaConfigFields } from "@/features/trivia/TriviaConfigFields";
+import { DEFAULT_TRIVIA_CONFIG, type TriviaConfig } from "@/features/trivia/trivia.types";
+import { TriviaTvPage } from "@/features/trivia/TriviaTvPage";
+import { updateTriviaConfig } from "@/features/rooms/room.api";
 
 function FunboxLogo() {
   return (
@@ -100,6 +104,17 @@ function MusicConfigSummary({ config }: { config: MusicGameConfig }) {
   );
 }
 
+function normalizeTriviaConfig(saved: Record<string, unknown>): TriviaConfig {
+  const valid = ["very_easy", "easy", "medium", "hard", "very_hard"];
+  const legacy = typeof saved.difficulty === "string" && valid.includes(saved.difficulty) ? [saved.difficulty] : [];
+  return { ...DEFAULT_TRIVIA_CONFIG, ...saved, categories: Array.isArray(saved.categories) ? saved.categories : [], difficulties: Array.isArray(saved.difficulties) && saved.difficulties.length ? saved.difficulties : legacy } as TriviaConfig;
+}
+
+function triviaDifficultyLabel(config: TriviaConfig) {
+  if (!config.difficulties.length) return "Todas";
+  return config.difficulties.map((item) => ({ very_easy: "Muy fácil", easy: "Fácil", medium: "Media", hard: "Difícil", very_hard: "Muy difícil" })[item]).join(", ");
+}
+
 export function LobbyPage({ code }: { code: string }) {
   const [room, setRoom] = useState<Room | null>(null);
   const [error, setError] = useState("");
@@ -109,6 +124,7 @@ export function LobbyPage({ code }: { code: string }) {
   const [configError, setConfigError] = useState("");
   const [musicConfig, setMusicConfig] = useState<MusicGameConfig>(DEFAULT_MUSIC_CONFIG);
   const [removingPlayer, setRemovingPlayer] = useState<string | null>(null);
+  const [triviaConfig, setTriviaConfig] = useState<TriviaConfig>(DEFAULT_TRIVIA_CONFIG);
   const updateRoom = useCallback((nextRoom: Room) => {
     setRoom(nextRoom);
   }, []);
@@ -162,10 +178,17 @@ export function LobbyPage({ code }: { code: string }) {
       setRemovingPlayer(null);
     }
   }
+  async function saveTriviaConfig() {
+    setSavingConfig(true); setConfigError("");
+    try { updateRoom(await updateTriviaConfig(code, triviaConfig)); setConfigOpen(false); }
+    catch (reason) { setConfigError(reason instanceof Error ? reason.message : "No pudimos preparar la trivia"); }
+    finally { setSavingConfig(false); }
+  }
 
   if (room.status === "playing" && room.gameKey === "guess-the-song") {
     return <MusicTvPage code={code} room={room} onReturnToLobby={updateRoom} />;
   }
+  if (room.status === "playing" && room.gameKey === "trivia") return <TriviaTvPage room={room} onReturn={updateRoom} />;
 
   return (
     <main className="lobby-shell">
@@ -180,6 +203,7 @@ export function LobbyPage({ code }: { code: string }) {
               setConfigOpen(true);
             }} aria-label="Configurar juego">⚙</button>
           )}
+          {room.gameKey === "trivia" && <button className="icon-button config-button" onClick={() => { setTriviaConfig(normalizeTriviaConfig(room.gameConfig)); setConfigOpen(true); }} aria-label="Configurar trivia">⚙</button>}
           <button className="icon-button" aria-label="Sonido activado">♪</button>
         </div>
       </header>
@@ -214,6 +238,7 @@ export function LobbyPage({ code }: { code: string }) {
           </div>
 
           {room.gameKey === "guess-the-song" && <MusicConfigSummary config={normalizeMusicConfig(room.gameConfig)} />}
+          {room.gameKey === "trivia" && (() => { const config = normalizeTriviaConfig(room.gameConfig); return <div className="config-summary"><span><small>{config.mode === "custom" ? "Tema" : "Categorías"}</small><strong>{config.mode === "custom" ? config.topic : config.categories.join(", ") || "Todas"}</strong></span><span><small>Dificultad</small><strong>{triviaDifficultyLabel(config)}</strong></span><span><small>Preguntas</small><strong>{String(config.rounds)}</strong></span><span><small>Tiempo</small><strong>{String(config.answerDuration)} s</strong></span></div>; })()}
 
           {room.gameKey === "guess-the-song" && (
             <div className="dj-stage-slot">
@@ -254,10 +279,10 @@ export function LobbyPage({ code }: { code: string }) {
         <div className="config-modal-backdrop" role="presentation" onMouseDown={() => setConfigOpen(false)}>
           <section className="config-modal" role="dialog" aria-modal="true" aria-label="Configuración musical" onMouseDown={(event) => event.stopPropagation()}>
             <header><div><p className="eyebrow">Antes de empezar</p><h2>Configura la partida</h2></div><button onClick={() => setConfigOpen(false)}>×</button></header>
-            <MusicConfigFields value={musicConfig} onChange={setMusicConfig} compact />
+            {room.gameKey === "trivia" ? <TriviaConfigFields value={triviaConfig} onChange={setTriviaConfig} /> : <MusicConfigFields value={musicConfig} onChange={setMusicConfig} compact />}
             <p>Al confirmar se selecciona la playlist, se preparan hasta 70 embeddings y se precargan los videos.</p>
             {configError && <p className="form-error">{configError}</p>}
-            <button className="start-button config-save" onClick={saveConfig} disabled={savingConfig}><span>{savingConfig ? "Preparando música…" : "Confirmar y preparar"}</span><i>✓</i></button>
+            <button className="start-button config-save" onClick={room.gameKey === "trivia" ? saveTriviaConfig : saveConfig} disabled={savingConfig}><span>{savingConfig ? "Preparando…" : "Confirmar y preparar"}</span><i>✓</i></button>
           </section>
         </div>
       )}

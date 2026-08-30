@@ -1,0 +1,5 @@
+export type TriviaDifficulty = "very_easy" | "easy" | "medium" | "hard" | "very_hard";
+export type TriviaCategory = "history" | "geography" | "science" | "math_logic" | "language" | "art_literature" | "film_tv" | "music" | "sports" | "technology" | "pop_culture" | "mexico";
+export interface TriviaConfig { mode: "categories" | "custom"; categories: TriviaCategory[]; topic: string; difficulties: TriviaDifficulty[]; rounds: number; answerDuration: number }
+export const DEFAULT_TRIVIA_CONFIG: TriviaConfig = { mode: "categories", categories: [], topic: "Cultura general", difficulties: [], rounds: 10, answerDuration: 20 };
+export interface TriviaState { phase: "ready" | "question" | "reveal" | "paused" | "finished"; roundNumber: number; totalRounds: number; answerDuration: number; deadlineAt?: string; question?: { id: string; question: string; options: string[]; difficulty: TriviaDifficulty }; correctIndex?: number; explanation?: string; answers: Record<string, number>; scores: Record<string, number>; pausedPhase?: "question" | "reveal"; pausedRemainingMs?: number }

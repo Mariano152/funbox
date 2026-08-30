@@ -5,6 +5,8 @@ import { roomEvents } from "../modules/rooms/rooms.events.js";
 import { musicEvents } from "../modules/music/music.events.js";
 import type { MusicPublicState } from "../modules/music/music.types.js";
 import type { StoredRoom } from "../modules/rooms/rooms.repository.js";
+import { triviaEvents } from "../modules/trivia/trivia.events.js";
+import type { TriviaPublicState } from "../modules/trivia/trivia.types.js";
 
 export function registerRoomSocket(app: FastifyInstance) {
   const io = new Server(app.server, {
@@ -27,6 +29,9 @@ export function registerRoomSocket(app: FastifyInstance) {
   });
   musicEvents.on("music:updated", ({ code, state }: { code: string; state: MusicPublicState }) => {
     io.to(`room:${code}`).emit("music:updated", state);
+  });
+  triviaEvents.on("trivia:updated", ({ code, state }: { code: string; state: TriviaPublicState }) => {
+    io.to(`room:${code}`).emit("trivia:updated", state);
   });
 
   return io;

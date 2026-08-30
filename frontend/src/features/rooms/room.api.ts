@@ -93,6 +93,7 @@ export function updateMusicConfig(code: string, gameConfig: object) {
     body: JSON.stringify(gameConfig),
   });
 }
+export function updateTriviaConfig(code: string, gameConfig: object) { return apiRequest<Room>(`/api/rooms/${code}/trivia-config`, { method: "PATCH", body: JSON.stringify(gameConfig) }); }
 
 export function sessionKey(code: string, nickname: string) {
   return `funbox:player:${code.toUpperCase()}:${nickname.trim().toLowerCase()}`;

@@ -89,6 +89,18 @@ function matchesAnswer(candidate: string, expected: string) {
   return editDistance(normalizedCandidate, normalizedExpected) <= tolerance;
 }
 
+function artistNames(value: string) {
+  return value
+    .replace(/\s+(?:feat\.?|ft\.?|featuring|with)\s+/gi, ",")
+    .split(/\s*(?:,|&|\bx\b|\band\b)\s*/i)
+    .map((artist) => artist.trim())
+    .filter(Boolean);
+}
+
+function matchesArtist(candidate: string, expected: string) {
+  return artistNames(expected).some((artist) => matchesAnswer(candidate, artist));
+}
+
 function applyAnswer(
   state: MusicRoomState,
   playerId: string,
@@ -102,7 +114,7 @@ function applyAnswer(
     submitted: false,
   };
   const songCorrect = previous.songCorrect || matchesAnswer(song, state.secretTrack.title);
-  const artistCorrect = previous.artistCorrect || matchesAnswer(artist, state.secretTrack.artist);
+  const artistCorrect = previous.artistCorrect || matchesArtist(artist, state.secretTrack.artist);
   const gained =
     Number(songCorrect && !previous.songCorrect) +
     Number(artistCorrect && !previous.artistCorrect);

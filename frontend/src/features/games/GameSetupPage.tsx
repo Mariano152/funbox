@@ -9,6 +9,8 @@ import { DEFAULT_MUSIC_CONFIG, type MusicGameConfig } from "@/features/music/mus
 import { createRoom } from "@/features/rooms/room.api";
 import type { GameDefinition } from "./game-catalog";
 import { FunboxLogo } from "./FunboxLogo";
+import { TriviaConfigFields } from "@/features/trivia/TriviaConfigFields";
+import { DEFAULT_TRIVIA_CONFIG, type TriviaConfig } from "@/features/trivia/trivia.types";
 
 export function GameSetupPage({ game }: { game: GameDefinition }) {
   const router = useRouter();
@@ -16,12 +18,14 @@ export function GameSetupPage({ game }: { game: GameDefinition }) {
   const [error, setError] = useState("");
   const [musicConfig, setMusicConfig] = useState<MusicGameConfig>(DEFAULT_MUSIC_CONFIG);
   const isMusicGame = game.key === "guess-the-song";
+  const isTriviaGame = game.key === "trivia";
+  const [triviaConfig, setTriviaConfig] = useState<TriviaConfig>(DEFAULT_TRIVIA_CONFIG);
 
   async function handleCreate() {
     setLoading(true);
     setError("");
     try {
-      const { room } = await createRoom(game.key, isMusicGame ? musicConfig : {});
+      const { room } = await createRoom(game.key, isMusicGame ? musicConfig : isTriviaGame ? triviaConfig : {});
       router.push(`/host/${room.code}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "No pudimos crear la sala");
@@ -52,6 +56,7 @@ export function GameSetupPage({ game }: { game: GameDefinition }) {
               <MusicConfigFields value={musicConfig} onChange={setMusicConfig} />
             </div>
           )}
+          {isTriviaGame && <div className="music-config"><TriviaConfigFields value={triviaConfig} onChange={setTriviaConfig} /></div>}
           <div className="setup-flow"><span>1. Crea la sala</span><span>2. Entran tus amigos</span><span>3. Empieza el juego</span></div>
           <button className="start-button setup-button" onClick={handleCreate} disabled={loading}>
             <span>{loading ? "Preparando música y lobby…" : "Confirmar y crear lobby"}</span><i>→</i>

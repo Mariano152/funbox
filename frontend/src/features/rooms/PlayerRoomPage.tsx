@@ -7,6 +7,7 @@ import { MusicPlayerPage } from "@/features/music/MusicPlayerPage";
 import { changeAvatar, changeDjRole, getRoom, startRoom } from "./room.api";
 import type { AvatarKey, PlayerSession, Room } from "./room.types";
 import { useRoomSocket } from "./use-room-socket";
+import { TriviaPlayerPage } from "@/features/trivia/TriviaPlayerPage";
 
 export function PlayerRoomPage({ code }: { code: string }) {
   const router = useRouter();
@@ -97,6 +98,7 @@ export function PlayerRoomPage({ code }: { code: string }) {
   if (room.status === "playing" && room.gameKey === "guess-the-song" && me && !me.isDj) {
     return <MusicPlayerPage room={room} player={me} session={session} />;
   }
+  if (room.status === "playing" && room.gameKey === "trivia") return <TriviaPlayerPage code={code} player={me} session={session} />;
 
   return (
     <main className="phone-shell">

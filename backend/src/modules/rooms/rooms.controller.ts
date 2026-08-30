@@ -9,6 +9,7 @@ import {
   roomPlayerParamsSchema,
   startRoomBodySchema,
   updateMusicConfigBodySchema,
+  updateTriviaConfigBodySchema,
 } from "./rooms.schemas.js";
 import type { RoomsService } from "./rooms.service.js";
 
@@ -17,9 +18,8 @@ export class RoomsController {
 
   create = async (request: FastifyRequest, reply: FastifyReply) => {
     const { gameKey, gameConfig } = createRoomBodySchema.parse(request.body);
-    const normalizedConfig = gameKey === "guess-the-song"
-      ? updateMusicConfigBodySchema.parse(gameConfig)
-      : gameConfig;
+    const normalizedConfig = gameKey === "guess-the-song" ? updateMusicConfigBodySchema.parse(gameConfig)
+      : gameKey === "trivia" ? updateTriviaConfigBodySchema.parse(gameConfig) : gameConfig;
     const result = await this.service.createRoom(gameKey, normalizedConfig);
     return reply.code(201).send(result);
   };
@@ -73,6 +73,13 @@ export class RoomsController {
     const { code } = roomCodeParamsSchema.parse(request.params);
     const gameConfig = updateMusicConfigBodySchema.parse(request.body);
     const room = await this.service.updateMusicConfig(code, gameConfig);
+    publishRoomUpdated(room);
+    return reply.send(room);
+  };
+  updateTriviaConfig = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { code } = roomCodeParamsSchema.parse(request.params);
+    const config = updateTriviaConfigBodySchema.parse(request.body);
+    const room = await this.service.updateTriviaConfig(code, config);
     publishRoomUpdated(room);
     return reply.send(room);
   };

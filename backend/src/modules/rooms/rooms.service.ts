@@ -35,11 +35,13 @@ export interface MusicLobbyPreparer {
   isLobbyPlaylistPrepared(code: string, config: GameConfig): Promise<boolean>;
   clearLobbyPlaylist(code: string): Promise<void>;
 }
+export interface TriviaLobbyPreparer extends MusicLobbyPreparer { onRoomStarted(code: string): Promise<void> }
 
 export class RoomsService {
   constructor(
     private readonly repository: RoomsRepository,
     private readonly musicPreparer?: MusicLobbyPreparer,
+    private readonly triviaPreparer?: TriviaLobbyPreparer,
   ) {}
 
   async createRoom(gameKey: string, gameConfig: GameConfig) {
@@ -65,11 +67,16 @@ export class RoomsService {
         if (!this.musicPreparer) throw roomError("El preparador musical no está disponible", 503);
         await this.musicPreparer.prepareLobbyPlaylist(code, gameConfig);
       }
+      if (gameKey === "trivia") {
+        if (!this.triviaPreparer) throw roomError("El generador de trivia no está disponible", 503);
+        await this.triviaPreparer.prepareLobbyPlaylist(code, gameConfig);
+      }
       let room;
       try {
         room = await this.repository.create(roomInput, hashToken(displayToken));
       } catch (error) {
         await this.musicPreparer?.clearLobbyPlaylist(code);
+        await this.triviaPreparer?.clearLobbyPlaylist(code);
         throw error;
       }
 
@@ -267,9 +274,13 @@ export class RoomsService {
         409,
       );
     }
+    if (room.gameKey === "trivia" && !await this.triviaPreparer?.isLobbyPlaylistPrepared(code, room.gameConfig)) {
+      throw roomError("La trivia todavía no está preparada", 409);
+    }
 
     const updatedRoom = await this.repository.updateStatus(code, "playing");
     if (!updatedRoom) throw roomError("Sala no encontrada", 404);
+    if (room.gameKey === "trivia") await this.triviaPreparer?.onRoomStarted(code);
     return updatedRoom;
   }
 
@@ -280,6 +291,17 @@ export class RoomsService {
     if (room.gameKey !== "guess-the-song") throw roomError("Esta sala no es musical", 409);
     if (!this.musicPreparer) throw roomError("El preparador musical no está disponible", 503);
     await this.musicPreparer.prepareLobbyPlaylist(code, gameConfig);
+    const updated = await this.repository.updateGameConfig(code, gameConfig);
+    if (!updated) throw roomError("No pudimos guardar la configuración", 409);
+    return updated;
+  }
+
+  async updateTriviaConfig(code: string, gameConfig: GameConfig) {
+    const room = await this.repository.findByCode(code);
+    if (!room) throw roomError("Sala no encontrada", 404);
+    if (room.status !== "lobby" || room.gameKey !== "trivia") throw roomError("La configuración ya está bloqueada", 409);
+    if (!this.triviaPreparer) throw roomError("El generador de trivia no está disponible", 503);
+    await this.triviaPreparer.prepareLobbyPlaylist(code, gameConfig);
     const updated = await this.repository.updateGameConfig(code, gameConfig);
     if (!updated) throw roomError("No pudimos guardar la configuración", 409);
     return updated;

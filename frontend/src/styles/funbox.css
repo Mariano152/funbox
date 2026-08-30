@@ -124,7 +124,7 @@
   padding: clamp(20px, 2.3vw, 34px);
   border-radius: 48px 38px 54px 42px;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   row-gap: clamp(6px, 1vh, 12px);
 }
 
@@ -1243,6 +1243,18 @@
   box-shadow: inset 0 1px #ffffff25, 0 35px 100px #03041366; text-align: center;
 }
 .music-stage-finished { justify-content: center; overflow-y: auto; }
+.live-ranking {
+  position: absolute; z-index: 5; top: 18px; right: 18px; width: clamp(150px, 16vw, 230px);
+  max-height: calc(100% - 36px); padding: 12px; overflow-y: auto;
+  border: 1px solid #ffffff1f; border-radius: 18px; background: #08091dcc;
+  box-shadow: 0 16px 45px #0006; text-align: left;
+}
+.live-ranking > p { margin: 0 0 8px; color: var(--cyan); font-size: .62rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.live-ranking > div { display: grid; grid-template-columns: 20px 28px minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 5px 0; border-top: 1px solid #ffffff0e; }
+.live-ranking > div > span { color: #8e87b1; font-size: .65rem; font-weight: 900; text-align: center; }
+.live-ranking .jelly { width: 28px; min-width: 28px; }
+.live-ranking strong { overflow: hidden; font-size: .62rem; text-overflow: ellipsis; white-space: nowrap; }
+.live-ranking small { color: var(--lime); font-size: .65rem; font-weight: 900; }
 .music-results { width: min(1050px, 100%); margin: auto; text-align: center; }
 .music-results h1 { margin: 5px 0 24px; font-size: clamp(2.4rem, 5vw, 5.5rem); }
 .music-podium { min-height: 330px; display: flex; justify-content: center; align-items: flex-end; gap: clamp(8px, 3vw, 35px); }
@@ -1321,6 +1333,35 @@
   from { opacity: 0; transform: translateY(28px) scale(.72); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+.trivia-config-fields { display: grid; gap: 14px; }
+.trivia-config-fields label { display: grid; gap: 7px; color: #bbb3da; font-size: .72rem; text-transform: uppercase; }
+.trivia-config-fields textarea, .trivia-config-fields select { width: 100%; padding: 12px; border: 1px solid #ffffff20; border-radius: 13px; background: #0b0c24; color: white; }
+.trivia-config-fields textarea { min-height: 90px; resize: vertical; }
+.trivia-player-card { overflow-y: auto; justify-content: flex-start; }
+.trivia-player-card header { width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: center; }
+.trivia-player-card header p { grid-column: 1 / -1; }
+.trivia-player-card header b { color: var(--lime); }
+.trivia-player-card h1 { font-size: clamp(1.6rem, 7vw, 2.4rem); }
+.trivia-options { width: 100%; display: grid; gap: 10px; }
+.trivia-options button { min-height: 58px; padding: 10px; display: flex; align-items: center; gap: 10px; border: 1px solid #ffffff24; border-radius: 16px; background: #ffffff0c; color: white; text-align: left; }
+.trivia-options button i, .tv-trivia-options i { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border-radius: 9px; background: var(--purple); font-style: normal; font-weight: 900; }
+.trivia-options button.selected { border-color: var(--lime); background: #b8f34a18; }
+.trivia-feedback { margin: auto; text-align: center; }
+.trivia-tv-shell { min-height: 100dvh; padding: clamp(16px,2vw,30px); background: linear-gradient(145deg,#090a1c,#17183b); }
+.trivia-tv-shell > header { display: flex; align-items: center; justify-content: space-between; }
+.trivia-tv-actions { display: flex; align-items: center; gap: 12px; }
+.trivia-tv-shell > header > span { color: #aaa2cc; }.trivia-tv-shell > header strong { color: var(--lime); }
+.trivia-tv-layout { height: calc(100dvh - 115px); display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 18px; }
+.trivia-board, .trivia-ranking { padding: clamp(18px,3vw,38px); border: 1px solid #ffffff20; border-radius: 32px; background: #17163acd; }
+.trivia-board { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.trivia-board h1 { max-width: 950px; font-size: clamp(2rem,4vw,4.3rem); }
+.tv-trivia-options { width: min(950px,100%); display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tv-trivia-options > div { padding: 16px; display: flex; align-items: center; gap: 12px; border: 1px solid #ffffff20; border-radius: 18px; text-align: left; }
+.tv-trivia-options > div.correct { border-color: var(--lime); background: #b8f34a20; }
+.trivia-explanation { color: #c9c2e8; }.trivia-ranking { overflow-y: auto; }.trivia-ranking h2 { color: var(--lime); }
+.trivia-ranking > div { display: grid; grid-template-columns: 22px 34px 1fr auto; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid #ffffff12; }
+.trivia-ranking .jelly { width: 34px; }.trivia-ranking b { color: var(--lime); }
 
 @media (max-width: 1000px) {
   .lobby-shell { height: auto; min-height: 100dvh; overflow-y: auto; }
@@ -1472,6 +1513,9 @@
   .dj-controls { padding: 14px; gap: 8px; }
   .dj-controls h1 { font-size: 2rem; }
   .music-stage { min-height: calc(100dvh - 110px); padding: 28px 14px; border-radius: 34px 27px 40px 30px; }
+  .live-ranking { top: 10px; right: 10px; width: 135px; max-height: 42%; padding: 8px; }
+  .live-ranking > div { grid-template-columns: 16px 22px minmax(0, 1fr) auto; gap: 4px; }
+  .live-ranking .jelly { width: 22px; min-width: 22px; }
   .music-stage-finished { padding-block: 18px; }
   .music-results h1 { margin-bottom: 14px; }
   .music-podium { min-height: 250px; gap: 5px; }

@@ -12,5 +12,6 @@ export const roomRoutes: FastifyPluginAsync = async (app) => {
   app.patch("/:code/players/dj", controller.changeDj);
   app.delete("/:code/players/:playerId", controller.removePlayer);
   app.patch("/:code/music-config", controller.updateMusicConfig);
+  app.patch("/:code/trivia-config", controller.updateTriviaConfig);
   app.post("/:code/start", controller.start);
 };

@@ -64,7 +64,7 @@ export function MusicPlayerPage({
       getMusicSuggestions("song", song)
         .then(({ suggestions }) => { if (active) setSongSuggestions(suggestions); })
         .catch(() => { if (active) setSongSuggestions([]); });
-    }, 550);
+    }, 180);
     return () => {
       active = false;
       window.clearTimeout(timeout);
@@ -80,7 +80,7 @@ export function MusicPlayerPage({
       getMusicSuggestions("artist", artist)
         .then(({ suggestions }) => { if (active) setArtistSuggestions(suggestions); })
         .catch(() => { if (active) setArtistSuggestions([]); });
-    }, 550);
+    }, 180);
     return () => {
       active = false;
       window.clearTimeout(timeout);

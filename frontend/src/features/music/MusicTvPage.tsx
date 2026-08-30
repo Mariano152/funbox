@@ -102,6 +102,19 @@ export function MusicTvPage({
         </div>
       </header>
       <section className={`music-stage music-stage-${state?.phase ?? "waiting"}`}>
+        {state?.phase !== "finished" && (
+          <aside className="live-ranking" aria-label="Ranking actual">
+            <p>Ranking</p>
+            {ranking.map((player, index) => (
+              <div key={player.id}>
+                <span>{index + 1}</span>
+                <AvatarCharacter avatarKey={player.avatarKey} compact />
+                <strong>{player.nickname}</strong>
+                <small>{player.score}</small>
+              </div>
+            ))}
+          </aside>
+        )}
         {state?.phase === "finished" ? (
           <div className="music-results">
             <p className="eyebrow">Fin de la partida</p>

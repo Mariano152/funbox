@@ -1,0 +1,2 @@
+"use client"; import { useEffect } from "react"; import { io } from "socket.io-client"; import { API_URL } from "@/features/rooms/room.api"; import type { TriviaState } from "./trivia.types";
+export function useTriviaSocket(code: string, update: (state: TriviaState) => void) { useEffect(() => { const socket = io(API_URL, { transports: ["websocket", "polling"] }); socket.emit("room:watch", code); socket.on("trivia:updated", update); return () => { socket.disconnect(); }; }, [code, update]); }
